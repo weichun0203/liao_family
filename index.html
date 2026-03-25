@@ -692,13 +692,28 @@
             const activities = ref([]);
             const expenses = ref([]);
 
-            const shortcuts = ref(safeParseJSON('familyApp_shortcuts', [
+            const defaultShortcuts = [
                 { id: '1', icon: 'message-circle', label: '家庭群組', type: 'line', url: 'https://line.me/R/ti/g/QEAhJrMjdu', color: 'text-[#8FA39A]', isCustom: false },
                 { id: '2', icon: 'map', label: '桃園景點', type: 'link', url: '/taoyuan', color: 'text-[#7A90A4]', isCustom: false },
                 { id: '3', icon: 'dices', label: '家事轉盤', type: 'roulette', color: 'text-[#B5989A]', isCustom: false },
                 { id: '4', icon: 'chef-hat', label: '料理推薦', type: 'link', url: '/food', color: 'text-[#D4C3B3]', isCustom: false },
                 { id: '5', icon: 'shopping-cart', label: '買菜清單', type: 'link', url: '/grocery', color: 'text-[#A39E99]', isCustom: false },
-            ]));
+            ];
+
+            let savedShortcuts = safeParseJSON('familyApp_shortcuts', null);
+            if (savedShortcuts) {
+                // 強制更新既有預設捷徑的 URL，保留使用者的自訂捷徑與排序
+                savedShortcuts = savedShortcuts.map(saved => {
+                    if (!saved.isCustom) {
+                        const def = defaultShortcuts.find(d => d.id === saved.id);
+                        if (def) return { ...saved, url: def.url };
+                    }
+                    return saved;
+                });
+            } else {
+                savedShortcuts = defaultShortcuts;
+            }
+            const shortcuts = ref(savedShortcuts);
 
             // --- GAS 雲端通訊功能 ---
             const syncToGas = async (sheetName, action, payload = null) => {
@@ -1040,13 +1055,8 @@
                 const formattedDate = newAct.value.date.replace(/-/g, '/');
                 const formattedEndDate = newAct.value.endDate ? newAct.value.endDate.replace(/-/g, '/') : '';
                 
-                const data = { 
-                    id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), 
-                    ...newAct.value, 
-                    date: formattedDate,
-                    endDate: formattedEndDate
-                };
-                delete data.isMultiDay; // 不要把純 UI 的變數傳給 GAS
+                const data = { id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), ...newAct.value, date: formattedDate, endDate: formattedEndDate };
+                delete data.isMultiDay;
                 
                 if (isEditingActivity.value) {
                     const index = activities.value.findIndex(a => a.id === editingActId.value);
@@ -1329,9 +1339,18 @@
 
             const handleShortcutClick = (item) => {
                 if(isEditingShortcuts.value) return;
-                if(item.type === 'roulette') showRouletteModal.value = true;
-                else if(item.url && item.url !== '#') window.open(item.url, '_blank');
-                else triggerToastMsg(`跳轉至：${item.label}`);
+                if(item.type === 'roulette') {
+                    showRouletteModal.value = true;
+                } else if(item.url && item.url !== '#') {
+                    // 如果是外部連結 (http 開頭) 用新分頁打開，內部連結直接跳轉
+                    if (item.url.startsWith('http')) {
+                        window.open(item.url, '_blank');
+                    } else {
+                        window.location.href = item.url;
+                    }
+                } else {
+                    triggerToastMsg(`功能開發中：${item.label}`);
+                }
             };
 
             const moveShortcut = (index, dir) => {
