@@ -24,11 +24,18 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+        
+        /* Toast 專屬滑下動畫 */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
 <body class="bg-[#E5E5E5] text-[#4A4A4A] font-sans overflow-hidden">
 
-<div id="app" class="flex justify-center min-h-screen">
+<div id="app" class="flex justify-center min-h-screen relative">
     <div class="w-full max-w-md bg-[#F4F5F7] h-[100dvh] relative flex flex-col overflow-hidden shadow-2xl">
         
         <!-- 背景環境光暈 -->
@@ -58,7 +65,7 @@
 
                 <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)] rounded-2xl p-5">
                     <h3 class="text-sm font-semibold text-[#A0AAB2] mb-3 flex items-center">
-                        <lucide-icon name="calendar" class="w-4 h-4 mr-1.5"></lucide-icon> 每日經文 (Google Sheet)
+                        <lucide-icon name="book-open" class="w-4 h-4 mr-1.5"></lucide-icon> 每日經文
                     </h3>
                     <p class="text-[#6C7A87] italic leading-relaxed border-l-2 border-[#D4DFE6] pl-4 text-sm font-medium">
                         {{ dailyScripture }}
@@ -86,6 +93,12 @@
                     </button>
                 </div>
 
+                <!-- 模式切換：月曆 / 列表 -->
+                <div class="flex bg-white/40 p-1.5 rounded-2xl border border-white/50 shadow-sm backdrop-blur-md">
+                    <button @click="activityView = 'calendar'" :class="['flex-1 py-2.5 rounded-xl text-sm font-bold transition-all', activityView === 'calendar' ? 'bg-white text-[#8FA39A] shadow-sm' : 'text-[#A0AAB2] hover:text-[#7A8B99]']">月曆模式</button>
+                    <button @click="activityView = 'list'" :class="['flex-1 py-2.5 rounded-xl text-sm font-bold transition-all', activityView === 'list' ? 'bg-white text-[#7A90A4] shadow-sm' : 'text-[#A0AAB2] hover:text-[#7A8B99]']">列表模式</button>
+                </div>
+
                 <div class="flex space-x-3">
                     <button @click="showAddActivityModal = true" class="flex-1 py-3 border-2 border-dashed border-[#B0B8C1]/50 text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/40 transition-colors">
                         <lucide-icon name="plus" class="w-5 h-5 mr-1.5"></lucide-icon> 新增活動
@@ -95,7 +108,53 @@
                     </button>
                 </div>
 
-                <div class="space-y-4">
+                <!-- 月曆模式 -->
+                <div v-if="activityView === 'calendar'" class="space-y-4">
+                    <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <button @click="changeMonth(-1)" class="p-1 rounded-lg hover:bg-white/50"><lucide-icon name="chevron-left" class="w-5 h-5 text-[#7A90A4]"></lucide-icon></button>
+                            <span class="font-bold text-[#5B6A78]">{{ currentYear }}年 {{ currentMonth + 1 }}月</span>
+                            <button @click="changeMonth(1)" class="p-1 rounded-lg hover:bg-white/50"><lucide-icon name="chevron-right" class="w-5 h-5 text-[#7A90A4]"></lucide-icon></button>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-[#A0AAB2] mb-2">
+                            <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                        </div>
+                        <div class="grid grid-cols-7 gap-y-2 gap-x-1 text-center">
+                            <div v-for="(day, idx) in calendarDays" :key="idx" 
+                                 @click="day ? selectDate(day) : null"
+                                 :class="['h-10 flex flex-col items-center justify-center rounded-xl cursor-pointer transition-colors relative', 
+                                          day && isSelectedDate(day) ? 'bg-[#8FA39A] text-white shadow-md' : day ? 'hover:bg-white/60 text-[#5B6A78]' : '']">
+                                <span v-if="day" class="text-sm font-semibold">{{ day }}</span>
+                                <div v-if="day && hasActivity(day)" :class="['w-1.5 h-1.5 rounded-full mt-0.5 absolute bottom-1', isSelectedDate(day) ? 'bg-white' : 'bg-[#B5989A]']"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 顯示選取日期的活動 -->
+                    <div v-if="selectedDateActivities.length > 0" class="space-y-3 pt-2">
+                        <h4 class="font-bold text-[#7A8B99] ml-1 flex items-center"><lucide-icon name="calendar-check" class="w-4 h-4 mr-1.5"></lucide-icon> {{ selectedDateFormatted }} 的活動</h4>
+                        <div v-for="act in selectedDateActivities" :key="act.id" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-4 border-l-4 border-l-[#D4C3B3]">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-bold text-[#5B6A78] text-[15px] leading-tight">{{ act.title }}</h4>
+                                <div class="flex space-x-1.5 ml-2 shrink-0">
+                                    <button @click="editActivity(act)" class="p-1 text-[#A0AAB2] hover:text-[#7A90A4] transition-colors"><lucide-icon name="edit-2" class="w-3.5 h-3.5"></lucide-icon></button>
+                                    <button @click="promptDeleteActivity(act.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-3.5 h-3.5"></lucide-icon></button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-[#7A8B99] mb-2 flex flex-wrap gap-1 items-center">
+                                <lucide-icon name="users" class="w-3.5 h-3.5 mr-1 opacity-70"></lucide-icon>
+                                <span v-for="p in act.participants" :key="p" :class="['px-2 py-0.5 rounded-md text-[11px] font-bold border', getMemberColor(p)]">{{ p }}</span>
+                            </div>
+                            <div v-if="act.note" class="text-xs text-[#8FA39A] bg-white/40 p-2 rounded-lg border border-white/50">{{ act.note }}</div>
+                        </div>
+                    </div>
+                    <div v-else class="text-center text-[#A0AAB2] pt-6 pb-2 text-sm">
+                        此日期沒有活動安排
+                    </div>
+                </div>
+
+                <!-- 列表模式 -->
+                <div v-if="activityView === 'list'" class="space-y-4">
                     <div v-if="filteredActivities.length === 0" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-10 flex flex-col items-center justify-center text-[#A0AAB2]">
                         <lucide-icon name="calendar" class="w-10 h-10 mb-2 opacity-50"></lucide-icon><p>目前沒有即將到來的活動</p>
                     </div>
@@ -103,14 +162,17 @@
                         <div class="flex justify-between items-start mb-3">
                             <div class="flex flex-col">
                                 <h4 class="font-bold text-[#5B6A78] text-lg leading-tight">{{ act.title }}</h4>
-                                <div class="bg-[#F0EEE9] text-[#9A8F84] text-xs font-bold px-2.5 py-1 rounded-md shadow-sm mt-1 w-max">{{ formatDate(act.date) }}</div>
+                                <div class="bg-[#F0EEE9] text-[#9A8F84] text-xs font-bold px-2.5 py-1 rounded-md shadow-sm mt-1 w-max">{{ formatActDate(act) }}</div>
                             </div>
                             <div class="flex space-x-2 ml-2">
                                 <button @click="editActivity(act)" class="p-1 text-[#A0AAB2] hover:text-[#7A90A4] transition-colors"><lucide-icon name="edit-2" class="w-4 h-4"></lucide-icon></button>
                                 <button @click="promptDeleteActivity(act.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
                             </div>
                         </div>
-                        <div class="text-sm text-[#7A8B99] mb-2 flex items-center"><lucide-icon name="user" class="w-3.5 h-3.5 mr-1.5 opacity-70"></lucide-icon> {{ act.participants.join(', ') }}</div>
+                        <div class="text-sm text-[#7A8B99] mb-2 flex flex-wrap gap-1 items-center">
+                            <lucide-icon name="users" class="w-3.5 h-3.5 mr-1 opacity-70"></lucide-icon>
+                            <span v-for="p in act.participants" :key="p" :class="['px-2 py-0.5 rounded-md text-[11px] font-bold border', getMemberColor(p)]">{{ p }}</span>
+                        </div>
                         <div v-if="act.note" class="text-sm text-[#8FA39A] bg-white/40 p-2.5 rounded-lg flex items-start border border-white/50">
                             <lucide-icon name="message-circle" class="w-4 h-4 mr-2 opacity-70 mt-0.5 shrink-0"></lucide-icon>{{ act.note }}
                         </div>
@@ -126,28 +188,50 @@
                     <lucide-icon name="plus" class="w-5 h-5 mr-1.5"></lucide-icon> 新增費用紀錄
                 </button>
 
-                <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-6">
-                    <h3 class="font-semibold mb-4 text-[#7A8B99]">費用比較 (去年 vs 今年)</h3>
-                    <div class="flex items-end justify-around h-48 mt-4 pt-4 border-b border-[#D4DFE6] relative">
-                        <div class="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-[#A0AAB2] -ml-2">
-                            <span>{{ chartMaxVal }}</span><span>{{ Math.round(chartMaxVal/2) }}</span><span>0</span>
+                <!-- 切換式類別比較圖表 -->
+                <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-5 pb-6 overflow-hidden relative">
+                    <div class="flex flex-col w-full relative">
+                        <div class="text-center font-bold text-[#7A8B99] mb-4 flex items-center justify-between px-1">
+                            <button @click="prevChart" class="p-1.5 -ml-1.5 hover:bg-white/60 rounded-full transition-colors active:scale-90"><lucide-icon name="chevron-left" class="w-5 h-5 text-[#7A90A4]"></lucide-icon></button>
+                            <span>{{ currentChartCategory }} 比較 (去年 vs 今年)</span>
+                            <button @click="nextChart" class="p-1.5 -mr-1.5 hover:bg-white/60 rounded-full transition-colors active:scale-90"><lucide-icon name="chevron-right" class="w-5 h-5 text-[#7A90A4]"></lucide-icon></button>
                         </div>
-                        <div v-for="item in chartData" :key="item.label" class="flex flex-col items-center w-1/5 z-10">
-                            <div class="flex items-end space-x-1.5 w-full justify-center h-full mb-3">
-                                <div class="bg-[#D1DAD5] w-3.5 rounded-t-md shadow-sm" :style="{ height: (item.lastYear / chartMaxVal) * 100 + '%' }"></div>
-                                <div class="bg-[#8FA39A] w-3.5 rounded-t-md shadow-sm transition-all duration-500" :style="{ height: (item.thisYear / chartMaxVal) * 100 + '%' }"></div>
+                        
+                        <!-- 標準垂直長條圖 -->
+                        <div class="relative h-[180px] w-full flex">
+                            <div class="flex flex-col justify-between items-end pr-2 text-[9px] text-[#A0AAB2] font-medium pb-6 w-9 shrink-0">
+                                <span>{{ categoryMaxVals[currentChartCategory] }}</span>
+                                <span>{{ Math.round(categoryMaxVals[currentChartCategory]/2) }}</span>
+                                <span>0</span>
                             </div>
-                            <span class="text-xs font-semibold text-[#7A8B99]">{{ item.label }}</span>
+                            
+                            <div class="flex-1 overflow-x-auto scrollbar-hide flex items-end pb-6 border-b border-l border-[#EAECEF] relative transition-all duration-300">
+                                <div class="flex space-x-3 px-2 h-full items-end pt-4 min-w-max">
+                                    <div v-for="stat in monthlyCategoryStats[currentChartCategory]" :key="stat.month" class="flex flex-col items-center shrink-0 w-8 h-full justify-end relative">
+                                        <div class="flex items-end space-x-0.5 w-full justify-center h-full relative group">
+                                            <div class="bg-[#D1DAD5] w-2.5 rounded-t-sm transition-all" :style="{ height: (stat.lastYear / categoryMaxVals[currentChartCategory] * 100) + '%' }"></div>
+                                            <div class="bg-[#8FA39A] w-2.5 rounded-t-sm shadow-sm transition-all" :style="{ height: (stat.thisYear / categoryMaxVals[currentChartCategory] * 100) + '%' }"></div>
+                                        </div>
+                                        <span class="text-[10px] text-[#7A8B99] absolute -bottom-5">{{ stat.month }}月</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="flex justify-center mt-5 space-x-5 text-xs font-medium text-[#7A8B99]">
-                        <div class="flex items-center"><div class="w-3 h-3 bg-[#D1DAD5] rounded-full mr-1.5 shadow-sm"></div> 去年同期</div>
-                        <div class="flex items-center"><div class="w-3 h-3 bg-[#8FA39A] rounded-full mr-1.5 shadow-sm"></div> 今年當期</div>
+                        <div class="flex items-center"><div class="w-3 h-3 bg-[#D1DAD5] rounded-sm mr-1.5 shadow-sm"></div> 去年</div>
+                        <div class="flex items-center"><div class="w-3 h-3 bg-[#8FA39A] rounded-sm mr-1.5 shadow-sm"></div> 今年</div>
                     </div>
                 </div>
 
                 <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl overflow-hidden">
-                    <div class="bg-white/40 px-5 py-3.5 border-b border-white/60"><h3 class="font-semibold text-[#5B6A78]">本年費用一覽</h3></div>
+                    <div class="bg-white/40 px-5 py-3.5 border-b border-white/60 flex justify-between items-center">
+                        <h3 class="font-semibold text-[#5B6A78]">費用一覽</h3>
+                        <select v-model="expenseYearFilter" class="bg-white/60 border border-white/80 rounded-lg px-3 py-1 text-xs text-[#7A8B99] outline-none shadow-sm focus:ring-2 focus:ring-[#8FA39A]/50">
+                            <option value="今年">今年</option>
+                            <option value="去年">去年</option>
+                        </select>
+                    </div>
                     
                     <div class="w-full text-sm text-left flex flex-col">
                         <div v-for="cat in expenseCategories" :key="cat" class="border-b border-[#EAECEF]/50 flex flex-col">
@@ -171,7 +255,7 @@
                                         <button @click.stop="promptDeleteExpense(exp.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
                                     </div>
                                 </div>
-                                <div v-if="!getExpensesByCategory(cat).length" class="text-center py-3 text-xs text-[#A0AAB2]">目前無紀錄</div>
+                                <div v-if="!getExpensesByCategory(cat).length" class="text-center py-3 text-xs text-[#A0AAB2]">此期間無紀錄</div>
                             </div>
                         </div>
                         <div class="bg-[#7A90A4]/10 border-t border-white/60 px-5 py-4 flex justify-between items-center">
@@ -191,7 +275,7 @@
 
                 <div class="flex space-x-3">
                     <button @click="showAddGoalModal = true" class="flex-1 py-3 border-2 border-dashed border-[#B0B8C1]/50 text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/40 transition-colors">
-                        <lucide-icon name="plus" class="w-5 h-5 mr-1.5"></lucide-icon> 新增{{ goalTab === 'personal' ? '個人' : '家庭' }}目標
+                        <lucide-icon name="plus" class="w-5 h-5 mr-1.5"></lucide-icon> 新增目標
                     </button>
                     <button @click="showPastGoalsModal = true" class="flex-1 py-3 bg-white/60 border border-white/60 shadow-sm text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/80 transition-colors">
                         <lucide-icon name="history" class="w-5 h-5 mr-1.5"></lucide-icon> 歷史目標
@@ -284,6 +368,14 @@
 
         <!-- ====== 所有彈出視窗 (Modals) ====== -->
         
+        <!-- 絕對定位全域 Toast (保證置中置上、不被裁切) -->
+        <div v-if="showToast" class="fixed top-[max(env(safe-area-inset-top),20px)] left-0 w-full z-[10000] px-4 pointer-events-none flex justify-center animate-slide-down">
+            <div class="w-full max-w-sm bg-white/95 backdrop-blur-xl border border-white/80 shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex items-center justify-center space-x-3 px-5 py-4 rounded-2xl">
+                <lucide-icon name="bell" class="w-5 h-5 text-[#8FA39A] flex-shrink-0"></lucide-icon>
+                <span class="text-sm font-bold text-[#5B6A78] text-center">{{ toastMsg }}</span>
+            </div>
+        </div>
+
         <!-- 首頁打卡確認 -->
         <div v-if="showHomeConfirm" @click.self="showHomeConfirm = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-5">
             <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
@@ -309,7 +401,7 @@
                         <div class="flex justify-between items-start mb-3">
                             <div class="flex flex-col">
                                 <h4 class="font-bold text-[#5B6A78] text-[15px] leading-tight">{{ act.title }}</h4>
-                                <div class="bg-[#F0EEE9] text-[#9A8F84] text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm mt-1 w-max">{{ formatDate(act.date) }}</div>
+                                <div class="bg-[#F0EEE9] text-[#9A8F84] text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm mt-1 w-max">{{ formatActDate(act) }}</div>
                             </div>
                             <div class="flex space-x-1.5 ml-2">
                                 <button @click="copyActivity(act)" class="p-1 text-[#A0AAB2] hover:text-[#8FA39A] transition-colors" title="複製為新活動"><lucide-icon name="copy" class="w-4 h-4"></lucide-icon></button>
@@ -317,7 +409,10 @@
                                 <button @click="promptDeleteActivity(act.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
                             </div>
                         </div>
-                        <div class="text-sm text-[#7A8B99] mb-2 flex items-center"><lucide-icon name="user" class="w-3 h-3 mr-1.5 opacity-70"></lucide-icon> {{ act.participants.join(', ') }}</div>
+                        <div class="text-sm text-[#7A8B99] mb-2 flex flex-wrap gap-1 items-center">
+                            <lucide-icon name="users" class="w-3.5 h-3.5 mr-1 opacity-70"></lucide-icon>
+                            <span v-for="p in act.participants" :key="p" :class="['px-2 py-0.5 rounded-md text-[11px] font-bold border', getMemberColor(p)]">{{ p }}</span>
+                        </div>
                         <div v-if="act.note" class="text-sm text-[#8FA39A] bg-white/40 p-2 rounded-lg flex items-start border border-white/50">
                             <lucide-icon name="message-circle" class="w-3 h-3 mr-2 opacity-70 mt-0.5 shrink-0"></lucide-icon>{{ act.note }}
                         </div>
@@ -332,11 +427,25 @@
                 <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">{{ isEditingActivity ? '編輯活動' : '新增活動' }}</h3><lucide-icon name="x" @click="handleBackdropClick('activity')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
                 <div class="space-y-4">
                     <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">活動名稱</label><input type="text" v-model="newAct.title" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
-                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">日期</label><input type="date" v-model="newAct.date" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
+                    
+                    <div class="flex space-x-2">
+                        <div class="flex-1"><label class="block text-sm font-semibold text-[#7A8B99] mb-1">開始日期</label><input type="date" v-model="newAct.date" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2 mt-2">
+                        <input type="checkbox" id="multiDayAct" v-model="newAct.isMultiDay" class="w-4 h-4 rounded text-[#8FA39A] focus:ring-[#8FA39A] accent-[#8FA39A]">
+                        <label for="multiDayAct" class="text-sm font-semibold text-[#7A8B99]">這是一個多天活動</label>
+                    </div>
+
+                    <div v-if="newAct.isMultiDay" class="animate-fade-in-up">
+                        <label class="block text-sm font-semibold text-[#7A8B99] mb-1">結束日期</label>
+                        <input type="date" v-model="newAct.endDate" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" />
+                    </div>
+
                     <div>
                         <label class="block text-sm font-semibold text-[#7A8B99] mb-2">參與者</label>
                         <div class="flex flex-wrap gap-2">
-                            <button v-for="member in familyMembers" :key="member" @click="toggleParticipant(member)" :class="['px-3 py-1.5 rounded-lg text-sm transition-colors', newAct.participants.includes(member) ? 'bg-[#8FA39A] text-white shadow-sm' : 'bg-white/50 text-[#7A8B99] border border-white/80']">{{ member }}</button>
+                            <button v-for="member in familyMembers" :key="member" @click="toggleParticipant(member)" :class="['px-3 py-1.5 rounded-lg text-sm transition-colors border', newAct.participants.includes(member) ? getMemberColor(member) + ' shadow-sm' : 'bg-white/50 text-[#7A8B99] border-white/80']">{{ member }}</button>
                         </div>
                     </div>
                     <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">備註 (選填)</label><input type="text" v-model="newAct.note" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
@@ -358,8 +467,8 @@
         </div>
 
         <!-- 新增/編輯費用 -->
-        <div v-if="showAddExpenseModal" @click.self="handleBackdropClick('expense')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4 pb-0 sm:pb-4">
-            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+        <div v-if="showAddExpenseModal" @click.self="handleBackdropClick('expense')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-[55] p-4 pb-0 sm:pb-4">
+            <div class="bg-white/95 backdrop-blur-3xl border border-white/80 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
                 <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">{{ isEditingExpense ? '編輯費用' : '新增費用' }}</h3><lucide-icon name="x" @click="handleBackdropClick('expense')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
                 <div class="space-y-4">
                     <div>
@@ -447,8 +556,8 @@
         </div>
 
         <!-- 新增捷徑 -->
-        <div v-if="showAddShortcutModal" @click.self="handleBackdropClick('shortcut')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4 pb-0 sm:pb-4">
-            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+        <div v-if="showAddShortcutModal" @click.self="handleBackdropClick('shortcut')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-[55] p-4 pb-0 sm:pb-4">
+            <div class="bg-white/95 backdrop-blur-3xl border border-white/80 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
                 <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">新增自訂捷徑</h3><lucide-icon name="x" @click="handleBackdropClick('shortcut')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
                 <div class="space-y-4">
                     <div>
@@ -467,7 +576,7 @@
         </div>
 
         <!-- 刪除捷徑確認 -->
-        <div v-if="confirmDeleteShortcut" @click.self="confirmDeleteShortcut = null" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-5">
+        <div v-if="confirmDeleteShortcut" @click.self="confirmDeleteShortcut = null" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60] p-5">
             <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
                 <h3 class="text-xl font-bold text-[#5B6A78] mb-3">確認刪除捷徑？</h3>
                 <p class="text-[#7A8B99] mb-6 text-sm">此操作無法復原，確定要移除此捷徑嗎？</p>
@@ -522,19 +631,13 @@
             </div>
         </div>
 
-        <!-- 全域 Toast -->
-        <div v-if="showToast" class="fixed top-8 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl border border-white/80 shadow-[0_10px_40px_rgba(0,0,0,0.15)] z-[9999] animate-fade-in-up flex items-center justify-center space-x-3 w-11/12 max-w-sm px-5 py-4 rounded-2xl">
-            <lucide-icon name="bell" class="w-5 h-5 text-[#8FA39A] flex-shrink-0"></lucide-icon>
-            <span class="text-sm flex-1 font-bold text-[#5B6A78] text-center">{{ toastMsg }}</span>
-        </div>
-
     </div>
 </div>
 
 <script>
     const { createApp, ref, computed, onMounted } = Vue;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwoANE0JKbf6yw75EBnAdfi2Zn_br9UOdNufaqY8pgULckj4dlolqT8AiXLVNFUznnX/exec"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwU4YgIGgEoCblD0PWkiFbN-VRNN3FPSHBl1UHOBvXK55OOlfnBXU49O-Ena5SeZHVL/exec"; 
     
     const LucideIcon = {
         props: ['name', 'class'],
@@ -563,10 +666,10 @@
             // --- 資料狀態 ---
             const userName = ref(localStorage.getItem('familyApp_userName') || '');
             const inputName = ref(userName.value);
-            const dailyScripture = ref("「凡事包容，凡事相信，凡事盼望，凡事忍耐。」- 哥林多前書 13:7");
+            const dailyScripture = ref("載入中...");
 
             const familyMembers = ['爸爸', '媽媽', '哥哥', '妹妹'];
-            const expenseCategories = ['房租', '管理費', '水費', '電費', '瓦斯費', '其他'];
+            const expenseCategories = ['房貸', '管理費', '水費', '電費', '瓦斯費', '其他'];
             
             const personalGoals = ref(JSON.parse(localStorage.getItem('familyApp_personalGoals')) || []);
             const familyGoals = ref([]);
@@ -603,7 +706,6 @@
                 }
             };
 
-            // 目標自動展期或保留歷史核心邏輯
             const processGoals = (goalsList, isCloud) => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -616,12 +718,10 @@
                         const dDate = new Date(goal.deadline.replace(/-/g, '/'));
                         dDate.setHours(0, 0, 0, 0);
 
-                        // 判斷是否超過截止日
                         if (dDate < today) {
                             if (goal.freq === '一次性') {
-                                // 轉為歷史紀錄，不再主動刪除
+                                // 不主動刪除，保留狀態進入歷史區塊
                             } else {
-                                // 自動延長時間並設為未完成
                                 modified = true;
                                 const newDate = new Date(dDate);
                                 if (goal.freq === '每天') newDate.setDate(newDate.getDate() + 1);
@@ -654,15 +754,24 @@
                         familyGoals.value = cloudProcess.result;
                     }
                     
+                    if (data.scriptures && data.scriptures.length > 0) {
+                        // 根據一年中的第幾天來輪播經文，保證每天看的不一樣
+                        const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
+                        const idx = dayOfYear % data.scriptures.length;
+                        dailyScripture.value = data.scriptures[idx].text || data.scriptures[idx][0] || dailyScripture.value;
+                    } else if (dailyScripture.value === "載入中...") {
+                        dailyScripture.value = "「凡事包容，凡事相信，凡事盼望，凡事忍耐。」- 哥林多前書 13:7";
+                    }
+                    
                 } catch (error) {
                     console.warn('GAS 讀取失敗', error);
                     if(showUI) triggerToastMsg('雲端資料讀取失敗，請確認 GAS 部署權限為「所有人」。');
+                    if (dailyScripture.value === "載入中...") dailyScripture.value = "「凡事包容，凡事相信，凡事盼望，凡事忍耐。」- 哥林多前書 13:7";
                 } finally {
                     if(showUI) isSyncing.value = false;
                 }
             };
 
-            // --- 更新與同步邏輯 ---
             const isSyncing = ref(false);
             const showSyncSuccess = ref(false);
             const manualSync = async () => {
@@ -671,7 +780,6 @@
                 setTimeout(() => showSyncSuccess.value = false, 1500);
             };
 
-            // --- 導覽列與介面操作 ---
             const navItems = [
                 { id: 'home', icon: 'home', label: '首頁' },
                 { id: 'activities', icon: 'calendar', label: '活動' },
@@ -686,13 +794,12 @@
                 setTimeout(() => showToast.value = false, 3000);
             };
 
-            // --- 通用取消編輯防呆邏輯 ---
             const showCancelConfirmModal = ref(false);
             const cancelTarget = ref(null);
 
             const handleBackdropClick = (target) => {
                 let hasData = false;
-                if (target === 'activity') hasData = newAct.value.title || newAct.value.date || newAct.value.participants.length > 0 || newAct.value.note;
+                if (target === 'activity') hasData = newAct.value.title || newAct.value.date || newAct.value.endDate || newAct.value.participants.length > 0 || newAct.value.note;
                 if (target === 'expense') hasData = newExpense.value.amount;
                 if (target === 'goal') hasData = newGoal.value.title || newGoal.value.deadline;
                 if (target === 'shortcut') hasData = newShortcut.value.label || newShortcut.value.url;
@@ -710,13 +817,13 @@
                     showAddActivityModal.value = false; 
                     isEditingActivity.value = false;
                     editingActId.value = null;
-                    newAct.value = { title: '', date: '', participants: [], note: '' }; 
+                    newAct.value = { title: '', date: '', endDate: '', isMultiDay: false, participants: [], note: '' }; 
                 }
                 if (target === 'expense') { 
                     showAddExpenseModal.value = false; 
                     isEditingExpense.value = false;
                     editingExpId.value = null;
-                    newExpense.value = { category: '水費', amount: '', date: new Date().toISOString().split('T')[0] }; 
+                    newExpense.value = { category: '房貸', amount: '', date: new Date().toISOString().split('T')[0] }; 
                 }
                 if (target === 'goal') { 
                     showAddGoalModal.value = false; 
@@ -747,32 +854,95 @@
             };
 
             // --- 活動邏輯 ---
+            const activityView = ref('calendar'); 
+            const calDate = ref(new Date());
+            const selectedDate = ref(new Date());
+
             const activityFilter = ref('全部');
             const showAddActivityModal = ref(false);
             const showPastActivitiesModal = ref(false);
-            const newAct = ref({ title: '', date: '', participants: [], note: '' });
+            const newAct = ref({ title: '', date: '', endDate: '', isMultiDay: false, participants: [], note: '' });
             
-            const filteredActivities = computed(() => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); 
-                let res = activityFilter.value === '全部' ? activities.value : activities.value.filter(a => a.participants.includes(activityFilter.value));
-                res = res.filter(a => {
-                    const actDate = new Date(a.date);
-                    actDate.setHours(0, 0, 0, 0);
-                    return actDate >= today;
-                });
-                return res.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const getMemberColor = (name) => {
+                // 替換為低飽和度的莫蘭迪色系
+                const colors = {
+                    '爸爸': 'bg-[#E5E9EC] text-[#5B6A78] border-[#C5D0D8]', // 莫蘭迪藍灰
+                    '媽媽': 'bg-[#F2E8E7] text-[#8A716D] border-[#DDC6C3]', // 莫蘭迪粉棕
+                    '哥哥': 'bg-[#E5EAE6] text-[#64746A] border-[#C2CEC5]', // 莫蘭迪灰綠
+                    '妹妹': 'bg-[#F0EBE1] text-[#8A8168] border-[#D6CDB8]'  // 莫蘭迪暖沙色
+                };
+                return colors[name] || 'bg-[#F4F5F7] text-[#7A8B99] border-[#D4DFE6]';
+            };
+
+            const baseFilteredActivities = computed(() => {
+                return activityFilter.value === '全部' 
+                    ? activities.value 
+                    : activities.value.filter(a => a.participants.includes(activityFilter.value));
             });
 
-            // 過去活動清單 (供歷史活動彈出視窗使用)
+            // 判斷某一天是否在活動範圍內 (支援單天與多天)
+            const isDateInAct = (dayTime, act) => {
+                if (!act.date) return false;
+                const start = new Date(act.date.replace(/-/g, '/')).setHours(0,0,0,0);
+                const end = act.endDate ? new Date(act.endDate.replace(/-/g, '/')).setHours(0,0,0,0) : start;
+                return dayTime >= start && dayTime <= end;
+            };
+
+            const filteredActivities = computed(() => {
+                const today = new Date().setHours(0, 0, 0, 0); 
+                return baseFilteredActivities.value.filter(a => {
+                    const end = a.endDate ? new Date(a.endDate.replace(/-/g, '/')).setHours(0,0,0,0) : new Date(a.date.replace(/-/g, '/')).setHours(0,0,0,0);
+                    return end >= today;
+                }).sort((a, b) => new Date(a.date) - new Date(b.date));
+            });
+
             const pastActivities = computed(() => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); 
+                const today = new Date().setHours(0, 0, 0, 0); 
                 return activities.value.filter(a => {
-                    const actDate = new Date(a.date);
-                    actDate.setHours(0, 0, 0, 0);
-                    return actDate < today;
+                    const end = a.endDate ? new Date(a.endDate.replace(/-/g, '/')).setHours(0,0,0,0) : new Date(a.date.replace(/-/g, '/')).setHours(0,0,0,0);
+                    return end < today;
                 }).sort((a, b) => new Date(b.date) - new Date(a.date));
+            });
+
+            const currentYear = computed(() => calDate.value.getFullYear());
+            const currentMonth = computed(() => calDate.value.getMonth());
+
+            const calendarDays = computed(() => {
+                const days = [];
+                const firstDay = new Date(currentYear.value, currentMonth.value, 1).getDay();
+                const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate();
+                for (let i = 0; i < firstDay; i++) days.push(null);
+                for (let i = 1; i <= daysInMonth; i++) days.push(i);
+                return days;
+            });
+
+            const changeMonth = (delta) => {
+                calDate.value = new Date(currentYear.value, currentMonth.value + delta, 1);
+            };
+
+            const selectDate = (day) => {
+                selectedDate.value = new Date(currentYear.value, currentMonth.value, day);
+            };
+
+            const isSelectedDate = (day) => {
+                return selectedDate.value.getDate() === day &&
+                       selectedDate.value.getMonth() === currentMonth.value &&
+                       selectedDate.value.getFullYear() === currentYear.value;
+            };
+
+            const hasActivity = (day) => {
+                const checkTime = new Date(currentYear.value, currentMonth.value, day).getTime();
+                return baseFilteredActivities.value.some(a => isDateInAct(checkTime, a));
+            };
+
+            const selectedDateActivities = computed(() => {
+                const checkTime = selectedDate.value.setHours(0,0,0,0);
+                return baseFilteredActivities.value.filter(a => isDateInAct(checkTime, a))
+                       .sort((a, b) => new Date(a.date) - new Date(b.date));
+            });
+
+            const selectedDateFormatted = computed(() => {
+                return `${selectedDate.value.getMonth() + 1}月${selectedDate.value.getDate()}日`;
             });
 
             const formatDate = (dateStr) => {
@@ -780,6 +950,14 @@
                 const date = new Date(dateStr);
                 const days = ['日', '一', '二', '三', '四', '五', '六'];
                 return `${date.getMonth() + 1}/${date.getDate()} (${days[date.getDay()]})`;
+            };
+
+            const formatActDate = (act) => {
+                const start = formatDate(act.date);
+                if (act.endDate && act.endDate !== act.date) {
+                    return `${start} ~ ${formatDate(act.endDate)}`;
+                }
+                return start;
             };
 
             const toggleParticipant = (p) => {
@@ -796,7 +974,14 @@
             const copyActivity = (act) => {
                 isEditingActivity.value = false;
                 editingActId.value = null;
-                newAct.value = { title: act.title + ' (複製)', date: act.date.replace(/\//g, '-'), participants: [...act.participants], note: act.note };
+                newAct.value = { 
+                    title: act.title + ' (複製)', 
+                    date: act.date.replace(/\//g, '-'), 
+                    endDate: act.endDate ? act.endDate.replace(/\//g, '-') : '',
+                    isMultiDay: !!act.endDate,
+                    participants: [...act.participants], 
+                    note: act.note 
+                };
                 showPastActivitiesModal.value = false;
                 showAddActivityModal.value = true;
             };
@@ -804,8 +989,13 @@
             const editActivity = (act) => {
                 isEditingActivity.value = true;
                 editingActId.value = act.id;
-                newAct.value = { ...act, participants: [...act.participants] };
+                newAct.value = { 
+                    ...act, 
+                    participants: [...act.participants],
+                    isMultiDay: !!act.endDate
+                };
                 newAct.value.date = act.date.replace(/\//g, '-'); 
+                if (act.endDate) newAct.value.endDate = act.endDate.replace(/\//g, '-');
                 showPastActivitiesModal.value = false;
                 showAddActivityModal.value = true;
             };
@@ -825,9 +1015,22 @@
 
             const submitActivity = () => {
                 if(!newAct.value.title || !newAct.value.date) return triggerToastMsg('請填寫完整資訊');
+                if(!newAct.value.isMultiDay) newAct.value.endDate = '';
+                if(newAct.value.isMultiDay) {
+                    if (!newAct.value.endDate) return triggerToastMsg('請選擇結束日期');
+                    if (new Date(newAct.value.endDate) < new Date(newAct.value.date)) return triggerToastMsg('結束日期不能早於開始日期');
+                }
                 
                 const formattedDate = newAct.value.date.replace(/-/g, '/');
-                const data = { id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), ...newAct.value, date: formattedDate };
+                const formattedEndDate = newAct.value.endDate ? newAct.value.endDate.replace(/-/g, '/') : '';
+                
+                const data = { 
+                    id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), 
+                    ...newAct.value, 
+                    date: formattedDate,
+                    endDate: formattedEndDate
+                };
+                delete data.isMultiDay; // 不要把純 UI 的變數傳給 GAS
                 
                 if (isEditingActivity.value) {
                     const index = activities.value.findIndex(a => a.id === editingActId.value);
@@ -839,26 +1042,47 @@
                     syncToGas('活動', 'add', data);
                     triggerToastMsg('已新增活動並同步至雲端');
                 }
-                
                 closeModal('activity');
             };
 
             // --- 報表邏輯 ---
             const showAddExpenseModal = ref(false);
             const expandedExpenseCategory = ref(null);
-            const newExpense = ref({ category: '水費', amount: '', date: new Date().toISOString().split('T')[0] });
+            const expenseYearFilter = ref('今年');
+            const newExpense = ref({ category: '房貸', amount: '', date: new Date().toISOString().split('T')[0] });
             
             const isEditingExpense = ref(false);
             const editingExpId = ref(null);
             const showDeleteExpenseModal = ref(false);
             const deleteExpId = ref(null);
 
+            const currentChartIndex = ref(2); // 預設顯示水費 (['房貸', '管理費', '水費', '電費', '瓦斯費', '其他'])
+            const currentChartCategory = computed(() => expenseCategories[currentChartIndex.value]);
+            const prevChart = () => {
+                currentChartIndex.value = (currentChartIndex.value - 1 + expenseCategories.length) % expenseCategories.length;
+            };
+            const nextChart = () => {
+                currentChartIndex.value = (currentChartIndex.value + 1) % expenseCategories.length;
+            };
+
+            const filteredExpensesForList = computed(() => {
+                const currentYear = new Date().getFullYear();
+                const targetYear = expenseYearFilter.value === '今年' ? currentYear : currentYear - 1;
+                return expenses.value.map(exp => {
+                    return { ...exp, category: exp.category === '房租' ? '房貸' : exp.category };
+                }).filter(exp => {
+                    const dDate = exp.date ? new Date(exp.date.replace(/-/g, '/')) : new Date();
+                    return dDate.getFullYear() === targetYear;
+                });
+            });
+
+            // 升冪排列：由舊到新
             const getExpensesByCategory = (cat) => {
-                return expenses.value.filter(e => e.category === cat).sort((a, b) => new Date(b.date) - new Date(a.date));
+                return filteredExpensesForList.value.filter(e => e.category === cat).sort((a, b) => new Date(a.date) - new Date(b.date));
             };
 
             const categoryTotals = computed(() => {
-                return expenses.value.reduce((acc, curr) => {
+                return filteredExpensesForList.value.reduce((acc, curr) => {
                     acc[curr.category] = (acc[curr.category] || 0) + Number(curr.amount);
                     return acc;
                 }, {});
@@ -866,14 +1090,40 @@
 
             const totalExpense = computed(() => Object.values(categoryTotals.value).reduce((a, b) => a + b, 0));
             
-            const chartData = computed(() => [
-                { label: '水費', lastYear: 500, thisYear: categoryTotals.value['水費'] || 0 },
-                { label: '電費', lastYear: 1200, thisYear: categoryTotals.value['電費'] || 0 },
-                { label: '瓦斯', lastYear: 400, thisYear: categoryTotals.value['瓦斯費'] || 0 },
-                { label: '管理', lastYear: 2500, thisYear: categoryTotals.value['管理費'] || 0 },
-            ]);
-            
-            const chartMaxVal = computed(() => Math.max(1000, ...chartData.value.flatMap(d => [d.lastYear, d.thisYear])));
+            const monthlyCategoryStats = computed(() => {
+                const currentYear = new Date().getFullYear();
+                const stats = {};
+                expenseCategories.forEach(cat => {
+                    stats[cat] = Array.from({length: 12}, (_, i) => ({ month: i + 1, thisYear: 0, lastYear: 0 }));
+                });
+
+                expenses.value.forEach(exp => {
+                    const cat = exp.category === '房租' ? '房貸' : exp.category;
+                    if (!stats[cat]) return;
+                    const dDate = exp.date ? new Date(exp.date.replace(/-/g, '/')) : new Date();
+                    const y = dDate.getFullYear();
+                    const m = dDate.getMonth(); 
+                    if (y === currentYear) {
+                        stats[cat][m].thisYear += Number(exp.amount) || 0;
+                    } else if (y === currentYear - 1) {
+                        stats[cat][m].lastYear += Number(exp.amount) || 0;
+                    }
+                });
+                return stats;
+            });
+
+            const categoryMaxVals = computed(() => {
+                const maxVals = {};
+                expenseCategories.forEach(cat => {
+                    let max = 0;
+                    monthlyCategoryStats.value[cat].forEach(stat => {
+                        if (stat.thisYear > max) max = stat.thisYear;
+                        if (stat.lastYear > max) max = stat.lastYear;
+                    });
+                    maxVals[cat] = max > 0 ? max : 1;
+                });
+                return maxVals;
+            });
 
             const editExpense = (exp) => {
                 isEditingExpense.value = true;
@@ -933,7 +1183,6 @@
                 today.setHours(0, 0, 0, 0);
                 let list = goalTab.value === 'personal' ? personalGoals.value : familyGoals.value;
                 return list.filter(g => {
-                    // 過濾掉已過期且完成的一次性歷史目標，將其留在歷史清單
                     if (g.done && g.deadline) {
                         const dDate = new Date(g.deadline.replace(/-/g, '/'));
                         dDate.setHours(0, 0, 0, 0);
@@ -948,7 +1197,6 @@
                 });
             });
 
-            // 過去目標清單 (歷史紀錄)
             const pastGoals = computed(() => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -1104,21 +1352,13 @@
             };
 
             onMounted(() => {
-                // 註冊真正的 Service Worker，因為有了真實的 sw.js 跟 manifest
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('./sw.js').then((registration) => {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    }).catch((err) => {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
+                    navigator.serviceWorker.register('./sw.js').catch((err) => {});
                 }
-
-                // 在掛載時自動處理本地目標的逾期更新
                 const localProcess = processGoals(personalGoals.value, false);
                 personalGoals.value = localProcess.result;
                 if (localProcess.modified) localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
                 
-                // 背景默默同步雲端資料，不顯示 Loading 彈窗
                 loadCloudData(false);
             });
 
@@ -1128,8 +1368,9 @@
                 showHomeConfirm, homeActionType, confirmHomeAction, executeHomeAction,
                 isSyncing, showSyncSuccess, manualSync,
                 showCancelConfirmModal, handleBackdropClick, confirmCancel,
-                activityFilter, showAddActivityModal, showPastActivitiesModal, isEditingActivity, showDeleteActivityModal, pastActivities, newAct, filteredActivities, formatDate, editActivity, copyActivity, promptDeleteActivity, confirmDeleteActivityAct, toggleParticipant, submitActivity,
-                showAddExpenseModal, isEditingExpense, showDeleteExpenseModal, expandedExpenseCategory, getExpensesByCategory, newExpense, categoryTotals, totalExpense, chartData, chartMaxVal, editExpense, promptDeleteExpense, confirmDeleteExpenseAct, submitExpense,
+                activityView, calDate, currentYear, currentMonth, calendarDays, changeMonth, selectDate, isSelectedDate, hasActivity, selectedDateActivities, selectedDateFormatted,
+                activityFilter, showAddActivityModal, showPastActivitiesModal, isEditingActivity, showDeleteActivityModal, pastActivities, newAct, filteredActivities, formatActDate, formatDate, editActivity, copyActivity, promptDeleteActivity, confirmDeleteActivityAct, toggleParticipant, getMemberColor, submitActivity,
+                expenseYearFilter, currentChartIndex, currentChartCategory, prevChart, nextChart, showAddExpenseModal, isEditingExpense, showDeleteExpenseModal, expandedExpenseCategory, getExpensesByCategory, newExpense, categoryTotals, totalExpense, monthlyCategoryStats, categoryMaxVals, editExpense, promptDeleteExpense, confirmDeleteExpenseAct, submitExpense,
                 goalTab, showAddGoalModal, showPastGoalsModal, newGoal, currentGoals, pastGoals, toggleGoal, submitGoal, isEditingGoal, promptDeleteGoal, showDeleteGoalModal, confirmDeleteGoalAct, editGoal, copyGoal,
                 shortcuts, isEditingShortcuts, showAddShortcutModal, confirmDeleteShortcut, availableIcons, newShortcut,
                 showRouletteModal, isSpinning, rouletteResult,
@@ -1138,9 +1379,122 @@
         }
     });
 
-    // 註冊安全圖標組件
     app.component('lucide-icon', LucideIcon);
     app.mount('#app');
 </script>
+
+<!--
+請到 Google Sheets 裡點擊 [擴充功能] -> [Apps Script]，貼上以下「完整」的程式碼並重新部署：
+
+function doGet(e) {
+  var sheetId = "142v1RLL_ovgnW2C4Z9Cgw3GUHssVQY2WYeJwbZixQRI"; // 你的試算表 ID
+  var ss = SpreadsheetApp.openById(sheetId);
+  var action = e.parameter.action;
+
+  var output = ContentService.createTextOutput();
+  output.setMimeType(ContentService.MimeType.JSON);
+
+  if (action === 'readAll') {
+    var result = {
+      // 活動新增 endDate 欄位讀取
+      activities: getSheetData(ss, '活動', ['id', 'title', 'date', 'participants', 'note', 'endDate']),
+      expenses: getSheetData(ss, '報表', ['id', 'category', 'amount', 'date']),
+      familyGoals: getSheetData(ss, '目標', ['id', 'title', 'deadline', 'freq', 'done']),
+      scriptures: getSheetData(ss, '經文', ['text']) // 讀取經文
+    };
+    output.setContent(JSON.stringify(result));
+    return output;
+  }
+  
+  output.setContent(JSON.stringify({status: "ok"}));
+  return output;
+}
+
+function getSheetData(ss, sheetName, keys) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getDisplayValues(); 
+  if (data.length <= 1) return [];
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var obj = {};
+    for (var j = 0; j < keys.length; j++) {
+      var val = row[j];
+      if (keys[j] === 'participants') {
+        obj[keys[j]] = val ? val.split(',') : [];
+      } else if (keys[j] === 'done') {
+        obj[keys[j]] = (val === 'true' || val === 'TRUE' || val === '1' || val === true);
+      } else {
+        obj[keys[j]] = val;
+      }
+    }
+    result.push(obj);
+  }
+  return result;
+}
+
+function doPost(e) {
+  var sheetId = "142v1RLL_ovgnW2C4Z9Cgw3GUHssVQY2WYeJwbZixQRI"; // 你的試算表 ID
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheetName = e.parameter.sheet; 
+  var action = e.parameter.action;
+  
+  if (!sheetName) return ContentService.createTextOutput("Error");
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return ContentService.createTextOutput("Error");
+
+  var data = JSON.parse(e.postData.contents);
+
+  if (action === 'add') {
+    var rowData = [];
+    // 把 endDate 放在最後一欄(F欄)最保險，不破壞舊有順序
+    if (sheetName === '活動') rowData = [data.id, data.title, data.date, data.participants.join(','), data.note, data.endDate || ''];
+    else if (sheetName === '報表') rowData = [data.id, data.category, data.amount, data.date];
+    else if (sheetName === '目標') rowData = [data.id, data.title, data.deadline, data.freq, data.done];
+    else if (sheetName === '首頁') rowData = [data.姓名, data.狀態, data.時間];
+    
+    if (rowData.length > 0) {
+      sheet.insertRowAfter(1);
+      sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
+    }
+  } else if (action === 'update' && sheetName === '目標') {
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(data.id)) {
+        sheet.getRange(i + 1, 3, 1, 3).setValues([[data.deadline, data.freq, data.done]]);
+        break;
+      }
+    }
+  } else if (action === 'update' && sheetName === '活動') {
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(data.id)) {
+        // 更新從 B 欄到 F 欄 (共 5 欄)
+        sheet.getRange(i + 1, 2, 1, 5).setValues([[data.title, data.date, data.participants.join(','), data.note, data.endDate || '']]);
+        break;
+      }
+    }
+  } else if (action === 'update' && sheetName === '報表') {
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(data.id)) {
+        sheet.getRange(i + 1, 2, 1, 3).setValues([[data.category, data.amount, data.date]]);
+        break;
+      }
+    }
+  } else if (action === 'delete') {
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(data.id)) {
+        sheet.deleteRow(i + 1);
+        break;
+      }
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({status: "success"})).setMimeType(ContentService.MimeType.JSON);
+}
+-->
 </body>
 </html>
