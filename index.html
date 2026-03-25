@@ -31,11 +31,15 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        /* 加上 v-cloak 避免 Vue 載入前畫面閃爍或卡出彈窗 */
+        [v-cloak] { display: none !important; }
     </style>
 </head>
 <body class="bg-[#E5E5E5] text-[#4A4A4A] font-sans overflow-hidden">
 
-<div id="app" class="flex justify-center min-h-screen relative">
+<!-- 加上 v-cloak 屬性 -->
+<div id="app" class="flex justify-center min-h-screen relative" v-cloak>
     <div class="w-full max-w-md bg-[#F4F5F7] h-[100dvh] relative flex flex-col overflow-hidden shadow-2xl">
         
         <!-- 背景環境光暈 -->
@@ -637,7 +641,7 @@
 <script>
     const { createApp, ref, computed, onMounted } = Vue;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzwRQLFxKoSfjJ0If6rS9GIEvpNG5H-Sd-HoRua0hAPLsAfDQKdiTn_Vj9sTBglKw/exec"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwU4YgIGgEoCblD0PWkiFbN-VRNN3FPSHBl1UHOBvXK55OOlfnBXU49O-Ena5SeZHVL/exec"; 
     
     const LucideIcon = {
         props: ['name', 'class'],
@@ -656,6 +660,17 @@
         }
     };
 
+    // 新增安全解析 JSON 的輔助函式，避免舊快取造成當機
+    const safeParseJSON = (key, defaultVal) => {
+        try {
+            const val = localStorage.getItem(key);
+            return val ? JSON.parse(val) : defaultVal;
+        } catch (e) {
+            console.warn(`修復了損壞的本地儲存資料: ${key}`);
+            return defaultVal;
+        }
+    };
+
     const app = createApp({
         setup() {
             // --- UI 狀態 ---
@@ -671,18 +686,19 @@
             const familyMembers = ['爸爸', '媽媽', '哥哥', '妹妹'];
             const expenseCategories = ['房貸', '管理費', '水費', '電費', '瓦斯費', '其他'];
             
-            const personalGoals = ref(JSON.parse(localStorage.getItem('familyApp_personalGoals')) || []);
+            // 使用 safeParseJSON 避免解析錯誤導致網頁白畫面
+            const personalGoals = ref(safeParseJSON('familyApp_personalGoals', []));
             const familyGoals = ref([]);
             const activities = ref([]);
             const expenses = ref([]);
 
-            const shortcuts = ref(JSON.parse(localStorage.getItem('familyApp_shortcuts')) || [
-                { id: '1', icon: 'message-circle', label: '家庭群組', type: 'line', url:'https://line.me/R/ti/g/QEAhJrMjdu' color: 'text-[#8FA39A]', isCustom: false },
-                { id: '2', icon: 'map', label: '桃園景點(開發中)', type: 'link', url: '#', color: 'text-[#7A90A4]', isCustom: false },
+            const shortcuts = ref(safeParseJSON('familyApp_shortcuts', [
+                { id: '1', icon: 'message-circle', label: '家庭群組', type: 'line', color: 'text-[#8FA39A]', isCustom: false },
+                { id: '2', icon: 'map', label: '桃園景點', type: 'link', url: '#', color: 'text-[#7A90A4]', isCustom: false },
                 { id: '3', icon: 'dices', label: '家事轉盤', type: 'roulette', color: 'text-[#B5989A]', isCustom: false },
-                { id: '4', icon: 'chef-hat', label: '料理推薦(開發中)', type: 'link', url: '#', color: 'text-[#D4C3B3]', isCustom: false },
-                { id: '5', icon: 'shopping-cart', label: '買菜清單(開發中)', type: 'link', url: '#', color: 'text-[#A39E99]', isCustom: false },
-            ]);
+                { id: '4', icon: 'chef-hat', label: '料理推薦', type: 'link', url: '#', color: 'text-[#D4C3B3]', isCustom: false },
+                { id: '5', icon: 'shopping-cart', label: '買菜清單', type: 'link', url: '#', color: 'text-[#A39E99]', isCustom: false },
+            ]));
 
             // --- GAS 雲端通訊功能 ---
             const syncToGas = async (sheetName, action, payload = null) => {
@@ -1353,12 +1369,15 @@
 
             onMounted(() => {
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('./sw.js').catch((err) => {});
+                    navigator.serviceWorker.register('./sw.js').catch((err) => {
+                        console.log('SW 註冊失敗', err);
+                    });
                 }
                 const localProcess = processGoals(personalGoals.value, false);
                 personalGoals.value = localProcess.result;
                 if (localProcess.modified) localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
                 
+                // 背景默默載入，UI (showUI) 設定為 false，所以不會跳出讀取視窗
                 loadCloudData(false);
             });
 
