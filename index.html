@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>健珊瑋妘愛的甜蜜小窩</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-[#E5E5E5] text-[#4A4A4A] font-sans overflow-hidden">
+
+<div id="app" class="flex justify-center min-h-screen">
+    <div class="w-full max-w-md bg-[#F4F5F7] h-[100dvh] relative flex flex-col overflow-hidden shadow-2xl">
+        
+        <!-- 背景環境光暈 -->
+        <div class="absolute top-[-5%] left-[-10%] w-64 h-64 bg-[#D4DFE6] rounded-full mix-blend-multiply filter blur-3xl opacity-70 z-0 pointer-events-none"></div>
+        <div class="absolute top-[20%] right-[-10%] w-64 h-64 bg-[#E3E0D8] rounded-full mix-blend-multiply filter blur-3xl opacity-70 z-0 pointer-events-none"></div>
+        <div class="absolute bottom-[10%] left-[20%] w-72 h-72 bg-[#D1DAD5] rounded-full mix-blend-multiply filter blur-3xl opacity-60 z-0 pointer-events-none"></div>
+
+        <!-- Header -->
+        <header class="bg-white/40 backdrop-blur-md text-[#5B6A78] p-4 sticky top-0 z-20 border-b border-white/50 flex justify-between items-center">
+            <h1 class="text-lg font-bold tracking-wider">健珊瑋妘愛的甜蜜小窩</h1>
+            <div class="flex space-x-4 items-center">
+                <button @click="manualSync" class="hover:text-[#8FA39A] transition-colors"><lucide-icon name="refresh-cw" class="w-5 h-5"></lucide-icon></button>
+            </div>
+        </header>
+
+        <!-- 內容區域 -->
+        <main class="flex-1 overflow-y-auto overflow-x-hidden relative z-10 pb-28 scrollbar-hide">
+            
+            <!-- 首頁 (Home) -->
+            <div v-if="activeTab === 'home'" class="p-5 space-y-5 animate-fade-in-up">
+                <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)] rounded-2xl p-6 relative overflow-hidden">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-xl"></div>
+                    <h2 class="text-2xl font-bold text-[#5B6A78]">歡迎回來，<br/>{{ userName || '親愛的家人' }}！</h2>
+                    <p class="text-[#8FA39A] mt-2 text-sm font-medium">今天也辛苦了，來看看家裡的狀況吧。</p>
+                </div>
+
+                <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)] rounded-2xl p-5">
+                    <h3 class="text-sm font-semibold text-[#A0AAB2] mb-3 flex items-center">
+                        <lucide-icon name="calendar" class="w-4 h-4 mr-1.5"></lucide-icon> 每日經文 (Google Sheet)
+                    </h3>
+                    <p class="text-[#6C7A87] italic leading-relaxed border-l-2 border-[#D4DFE6] pl-4 text-sm font-medium">
+                        {{ dailyScripture }}
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 pt-2">
+                    <button @click="confirmHomeAction('home')" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-5 flex flex-col items-center justify-center transition-all active:scale-95 group hover:bg-white/80">
+                        <div class="bg-[#8FA39A]/20 p-3 rounded-full mb-3"><lucide-icon name="map-pin" class="w-7 h-7 text-[#8FA39A]"></lucide-icon></div>
+                        <span class="font-bold text-[#5B6A78]">我到家了</span>
+                    </button>
+                    <button @click="confirmHomeAction('out')" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-5 flex flex-col items-center justify-center transition-all active:scale-95 group hover:bg-white/80">
+                        <div class="bg-[#7A90A4]/20 p-3 rounded-full mb-3"><lucide-icon name="log-out" class="w-7 h-7 text-[#7A90A4]"></lucide-icon></div>
+                        <span class="font-bold text-[#5B6A78]">我出門了</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 活動 (Activities) -->
+            <div v-if="activeTab === 'activities'" class="p-5 space-y-5 animate-fade-in-up">
+                <div class="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <button v-for="f in ['全部', ...familyMembers]" :key="f" @click="activityFilter = f"
+                            :class="['whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all', activityFilter === f ? 'bg-[#7A90A4] text-white shadow-md' : 'bg-white/60 text-[#7A8B99] border border-white hover:bg-white/80']">
+                        {{ f }}
+                    </button>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button @click="showAddActivityModal = true" class="flex-1 py-3 border-2 border-dashed border-[#B0B8C1]/50 text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/40 transition-colors">
+                        <lucide-icon name="plus" class="w-5 h-5 mr-1.5"></lucide-icon> 新增活動
+                    </button>
+                    <button @click="showPastActivitiesModal = true" class="flex-1 py-3 bg-white/60 border border-white/60 shadow-sm text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/80 transition-colors">
+                        <lucide-icon name="history" class="w-5 h-5 mr-1.5"></lucide-icon> 歷史活動
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div v-if="filteredActivities.length === 0" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-10 flex flex-col items-center justify-center text-[#A0AAB2]">
+                        <lucide-icon name="calendar" class="w-10 h-10 mb-2 opacity-50"></lucide-icon><p>目前沒有即將到來的活動</p>
+                    </div>
+                    <div v-for="act in filteredActivities" :key="act.id" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-5 border-l-4 border-l-[#D4C3B3]">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex flex-col">
+                                <h4 class="font-bold text-[#5B6A78] text-lg leading-tight">{{ act.title }}</h4>
+                                <div class="bg-[#F0EEE9] text-[#9A8F84] text-xs font-bold px-2.5 py-1 rounded-md shadow-sm mt-1 w-max">{{ formatDate(act.date) }}</div>
+                            </div>
+                            <div class="flex space-x-2 ml-2">
+                                <button @click="editActivity(act)" class="p-1 text-[#A0AAB2] hover:text-[#7A90A4] transition-colors"><lucide-icon name="edit-2" class="w-4 h-4"></lucide-icon></button>
+                                <button @click="promptDeleteActivity(act.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
+                            </div>
+                        </div>
+                        <div class="text-sm text-[#7A8B99] mb-2 flex items-center"><lucide-icon name="user" class="w-3.5 h-3.5 mr-1.5 opacity-70"></lucide-icon> {{ act.participants.join(', ') }}</div>
+                        <div v-if="act.note" class="text-sm text-[#8FA39A] bg-white/40 p-2.5 rounded-lg flex items-start border border-white/50">
+                            <lucide-icon name="message-circle" class="w-4 h-4 mr-2 opacity-70 mt-0.5 shrink-0"></lucide-icon>{{ act.note }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 報表 (Reports) -->
+            <div v-if="activeTab === 'reports'" class="p-5 space-y-5 animate-fade-in-up">
+                <h2 class="text-2xl font-bold text-[#5B6A78] ml-1">家庭財務</h2>
+                
+                <button @click="showAddExpenseModal = true" class="w-full py-3.5 border-2 border-dashed border-[#B0B8C1]/50 text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/40 transition-colors">
+                    <lucide-icon name="plus" class="w-5 h-5 mr-1.5"></lucide-icon> 新增費用紀錄
+                </button>
+
+                <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-6">
+                    <h3 class="font-semibold mb-4 text-[#7A8B99]">費用比較 (去年 vs 今年)</h3>
+                    <div class="flex items-end justify-around h-48 mt-4 pt-4 border-b border-[#D4DFE6] relative">
+                        <div class="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-[#A0AAB2] -ml-2">
+                            <span>{{ chartMaxVal }}</span><span>{{ Math.round(chartMaxVal/2) }}</span><span>0</span>
+                        </div>
+                        <div v-for="item in chartData" :key="item.label" class="flex flex-col items-center w-1/5 z-10">
+                            <div class="flex items-end space-x-1.5 w-full justify-center h-full mb-3">
+                                <div class="bg-[#D1DAD5] w-3.5 rounded-t-md shadow-sm" :style="{ height: (item.lastYear / chartMaxVal) * 100 + '%' }"></div>
+                                <div class="bg-[#8FA39A] w-3.5 rounded-t-md shadow-sm transition-all duration-500" :style="{ height: (item.thisYear / chartMaxVal) * 100 + '%' }"></div>
+                            </div>
+                            <span class="text-xs font-semibold text-[#7A8B99]">{{ item.label }}</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-center mt-5 space-x-5 text-xs font-medium text-[#7A8B99]">
+                        <div class="flex items-center"><div class="w-3 h-3 bg-[#D1DAD5] rounded-full mr-1.5 shadow-sm"></div> 去年同期</div>
+                        <div class="flex items-center"><div class="w-3 h-3 bg-[#8FA39A] rounded-full mr-1.5 shadow-sm"></div> 今年當期</div>
+                    </div>
+                </div>
+
+                <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl overflow-hidden">
+                    <div class="bg-white/40 px-5 py-3.5 border-b border-white/60"><h3 class="font-semibold text-[#5B6A78]">本年費用一覽</h3></div>
+                    
+                    <div class="w-full text-sm text-left flex flex-col">
+                        <div v-for="cat in expenseCategories" :key="cat" class="border-b border-[#EAECEF]/50 flex flex-col">
+                            <div class="px-5 py-4 flex justify-between items-center cursor-pointer hover:bg-white/40 transition-colors" @click="expandedExpenseCategory = expandedExpenseCategory === cat ? null : cat">
+                                <span class="font-semibold text-[#6C7A87]">{{ cat }}</span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-medium text-[#6C7A87]">NT$ {{ (categoryTotals[cat] || 0).toLocaleString() }}</span>
+                                    <span :class="['transition-transform duration-300', expandedExpenseCategory === cat ? 'rotate-180' : '']">
+                                        <lucide-icon name="chevron-down" class="w-4 h-4 text-[#A0AAB2]"></lucide-icon>
+                                    </span>
+                                </div>
+                            </div>
+                            <div v-if="expandedExpenseCategory === cat" class="bg-black/5 px-5 py-2 shadow-inner">
+                                <div v-for="exp in getExpensesByCategory(cat)" :key="exp.id" class="flex justify-between items-center py-2 border-b border-black/5 last:border-0 text-[#7A8B99]">
+                                    <div class="flex flex-col">
+                                        <span class="text-xs">{{ exp.date }}</span>
+                                        <span class="text-xs font-semibold mt-0.5 text-[#5B6A78]">NT$ {{ Number(exp.amount).toLocaleString() }}</span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button @click.stop="editExpense(exp)" class="p-1 text-[#A0AAB2] hover:text-[#7A90A4] transition-colors"><lucide-icon name="edit-2" class="w-4 h-4"></lucide-icon></button>
+                                        <button @click.stop="promptDeleteExpense(exp.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
+                                    </div>
+                                </div>
+                                <div v-if="!getExpensesByCategory(cat).length" class="text-center py-3 text-xs text-[#A0AAB2]">目前無紀錄</div>
+                            </div>
+                        </div>
+                        <div class="bg-[#7A90A4]/10 border-t border-white/60 px-5 py-4 flex justify-between items-center">
+                            <span class="text-[#5B6A78] font-bold">總計</span>
+                            <span class="text-right font-bold text-[#5B6A78]">NT$ {{ totalExpense.toLocaleString() }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 目標 (Goals) -->
+            <div v-if="activeTab === 'goals'" class="p-5 space-y-5 animate-fade-in-up">
+                <div class="flex bg-white/40 p-1.5 rounded-2xl border border-white/50 shadow-sm backdrop-blur-md">
+                    <button @click="goalTab = 'personal'" :class="['flex-1 py-2.5 rounded-xl text-sm font-bold transition-all', goalTab === 'personal' ? 'bg-white text-[#7A90A4] shadow-sm' : 'text-[#A0AAB2] hover:text-[#7A8B99]']">個人</button>
+                    <button @click="goalTab = 'family'" :class="['flex-1 py-2.5 rounded-xl text-sm font-bold transition-all', goalTab === 'family' ? 'bg-white text-[#8FA39A] shadow-sm' : 'text-[#A0AAB2] hover:text-[#7A8B99]']">家庭</button>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button @click="showAddGoalModal = true" class="flex-1 py-3 border-2 border-dashed border-[#B0B8C1]/50 text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/40 transition-colors">
+                        <lucide-icon name="plus" class="w-5 h-5 mr-1.5"></lucide-icon> 新增{{ goalTab === 'personal' ? '個人' : '家庭' }}目標
+                    </button>
+                    <button @click="showPastGoalsModal = true" class="flex-1 py-3 bg-white/60 border border-white/60 shadow-sm text-[#7A8B99] rounded-2xl font-bold flex justify-center items-center hover:bg-white/80 transition-colors">
+                        <lucide-icon name="history" class="w-5 h-5 mr-1.5"></lucide-icon> 歷史目標
+                    </button>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <div v-for="goal in currentGoals" :key="goal.id" :class="['bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-4 flex items-center justify-between transition-all duration-300', goal.done ? 'opacity-50 scale-[0.98]' : 'hover:shadow-md']">
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start">
+                                <h4 :class="['font-bold text-[15px]', goal.done ? 'line-through text-[#A0AAB2]' : 'text-[#5B6A78]']">{{ goal.title }}</h4>
+                                <div class="flex space-x-1.5 mr-3">
+                                    <button @click.stop="editGoal(goal)" class="p-1 text-[#A0AAB2] hover:text-[#7A90A4] transition-colors"><lucide-icon name="edit-2" class="w-4 h-4"></lucide-icon></button>
+                                    <button @click.stop="promptDeleteGoal(goal.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-[#7A8B99] mt-1.5 flex items-center space-x-2">
+                                <span class="bg-white/70 border border-white px-2 py-0.5 rounded-md shadow-sm">{{ goal.freq }}</span>
+                                <span v-if="goal.deadline">期限: {{ goal.deadline }}</span>
+                            </div>
+                        </div>
+                        <button @click="toggleGoal(goal)" class="p-2 transition-transform active:scale-90 shrink-0">
+                            <lucide-icon v-if="goal.done" name="check-circle" :class="['w-7 h-7', goalTab === 'family' ? 'text-[#8FA39A]' : 'text-[#7A90A4]']"></lucide-icon>
+                            <lucide-icon v-else name="circle" class="text-[#D4DFE6] w-7 h-7"></lucide-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 設定 (Settings) -->
+            <div v-if="activeTab === 'settings'" class="p-5 space-y-6 animate-fade-in-up">
+                <div class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-5">
+                    <h3 class="font-bold text-[#5B6A78] mb-4 flex items-center"><lucide-icon name="user" class="w-5 h-5 mr-2 text-[#8FA39A]"></lucide-icon> 個人設定</h3>
+                    <div class="flex space-x-2">
+                        <input type="text" v-model="inputName" placeholder="請輸入稱呼" class="flex-1 bg-white/60 border border-white rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#7A90A4]/50 shadow-inner" />
+                        <button @click="saveSettings" class="bg-[#7A90A4] text-white px-5 py-2 rounded-xl font-semibold shadow-md hover:bg-[#687C8F] transition-colors">儲存</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-3 ml-1 mr-1">
+                        <h3 class="font-bold text-[#5B6A78]">快速功能</h3>
+                        <button @click="isEditingShortcuts = !isEditingShortcuts" :class="['flex items-center text-sm font-semibold transition-colors', isEditingShortcuts ? 'text-[#B5989A]' : 'text-[#A0AAB2] hover:text-[#7A90A4]']">
+                            <template v-if="isEditingShortcuts">完成編輯</template>
+                            <template v-else><lucide-icon name="edit-2" class="w-4 h-4 mr-1"></lucide-icon> 編輯</template>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-3">
+                        <div v-for="(item, idx) in shortcuts" :key="item.id" class="relative group">
+                            <button @click="handleShortcutClick(item)" :class="['bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl w-full p-3 flex flex-col items-center justify-center aspect-square transition-all', isEditingShortcuts ? 'border-[#B0B8C1] border-dashed bg-white/40 cursor-default' : 'hover:bg-white/80 active:scale-95']">
+                                <div :class="['mb-2 bg-white/50 p-3 rounded-full shadow-sm border border-white transition-transform', !isEditingShortcuts && 'group-hover:scale-110']">
+                                    <lucide-icon :name="item.icon" :class="['w-7 h-7', item.color]"></lucide-icon>
+                                </div>
+                                <span class="text-xs font-semibold text-[#7A8B99] text-center leading-tight">{{ item.label }}</span>
+                            </button>
+
+                            <!-- 編輯模式覆蓋層 -->
+                            <div v-if="isEditingShortcuts" class="absolute inset-0 flex flex-col justify-between p-1 z-10">
+                                <div class="flex justify-between w-full">
+                                    <button v-if="item.isCustom" @click="confirmDeleteShortcut = item.id" class="bg-[#B5989A] text-white p-1 rounded-full shadow-md hover:scale-110"><lucide-icon name="trash-2" class="w-3.5 h-3.5"></lucide-icon></button>
+                                </div>
+                                <div class="flex justify-between w-full pb-1 px-1">
+                                    <button @click="moveShortcut(idx, -1)" :disabled="idx === 0" :class="['p-1 rounded bg-white/80 shadow-sm', idx === 0 ? 'opacity-30' : 'hover:bg-white']"><lucide-icon name="arrow-left" class="w-4 h-4 text-[#7A90A4]"></lucide-icon></button>
+                                    <button @click="moveShortcut(idx, 1)" :disabled="idx === shortcuts.length - 1" :class="['p-1 rounded bg-white/80 shadow-sm', idx === shortcuts.length - 1 ? 'opacity-30' : 'hover:bg-white']"><lucide-icon name="arrow-right" class="w-4 h-4 text-[#7A90A4]"></lucide-icon></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 新增捷徑按鈕 -->
+                        <button v-if="!isEditingShortcuts" @click="showAddShortcutModal = true" class="bg-white/60 backdrop-blur-xl rounded-2xl p-3 flex flex-col items-center justify-center aspect-square hover:bg-white/80 transition-all active:scale-95 group border-dashed border-2 border-[#C4CDD5]/50">
+                            <div class="mb-2 bg-white/30 p-3 rounded-full group-hover:scale-110 transition-transform"><lucide-icon name="plus" class="w-7 h-7 text-[#A0AAB2]"></lucide-icon></div>
+                            <span class="text-xs font-semibold text-[#A0AAB2] text-center leading-tight">新增捷徑</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- 底部導覽列 -->
+        <nav class="fixed bottom-0 w-full max-w-md bg-white/70 backdrop-blur-xl border-t border-white/60 flex justify-around items-center min-h-[72px] pb-[env(safe-area-inset-bottom)] z-30 shadow-[0_-4px_24px_rgba(0,0,0,0.02)]">
+            <button v-for="nav in navItems" :key="nav.id" @click="activeTab = nav.id" :class="['flex flex-col items-center justify-center w-full h-full py-2 transition-colors', activeTab === nav.id ? 'text-[#7A90A4]' : 'text-[#B0B8C1] hover:text-[#7A90A4]']">
+                <div :class="['mb-1 transition-transform', activeTab === nav.id ? 'transform scale-110 drop-shadow-sm' : '']">
+                    <lucide-icon :name="nav.icon" class="w-[22px] h-[22px]"></lucide-icon>
+                </div>
+                <span class="text-[10px] font-medium tracking-wide">{{ nav.label }}</span>
+            </button>
+        </nav>
+
+        <!-- ====== 所有彈出視窗 (Modals) ====== -->
+        
+        <!-- 首頁打卡確認 -->
+        <div v-if="showHomeConfirm" @click.self="showHomeConfirm = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-5">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <h3 class="text-xl font-bold text-[#5B6A78] mb-3">確認發送 LINE 通知？</h3>
+                <p class="text-[#7A8B99] mb-6 text-sm">即將傳送「{{ userName || '家人' }} 已{{ homeActionType === 'home' ? '到家' : '出門' }}」的訊息至群組。</p>
+                <div class="flex space-x-3">
+                    <button @click="showHomeConfirm = false" class="flex-1 py-3 bg-white/50 text-[#7A8B99] rounded-xl font-semibold hover:bg-white/80 transition-colors">取消</button>
+                    <button @click="executeHomeAction" class="flex-1 py-3 bg-[#8FA39A] text-white rounded-xl font-semibold shadow-lg shadow-[#8FA39A]/30 hover:bg-[#7D9188] transition-colors">確認發送</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 歷史活動清單 Modal -->
+        <div v-if="showPastActivitiesModal" @click.self="showPastActivitiesModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-[50] p-4 pb-0 sm:pb-4">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm h-[85vh] flex flex-col animate-fade-in-up">
+                <div class="flex justify-between items-center mb-5 shrink-0">
+                    <h3 class="text-xl font-bold text-[#5B6A78]">歷史活動紀錄</h3>
+                    <lucide-icon name="x" @click="showPastActivitiesModal = false" class="text-[#A0AAB2] cursor-pointer"></lucide-icon>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-hide">
+                    <div v-if="pastActivities.length === 0" class="text-center text-[#A0AAB2] py-10">目前沒有歷史活動資料</div>
+                    <div v-for="act in pastActivities" :key="act.id" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-4 border-l-4 border-l-[#A0AAB2]">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex flex-col">
+                                <h4 class="font-bold text-[#5B6A78] text-[15px] leading-tight">{{ act.title }}</h4>
+                                <div class="bg-[#F0EEE9] text-[#9A8F84] text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm mt-1 w-max">{{ formatDate(act.date) }}</div>
+                            </div>
+                            <div class="flex space-x-1.5 ml-2">
+                                <button @click="copyActivity(act)" class="p-1 text-[#A0AAB2] hover:text-[#8FA39A] transition-colors" title="複製為新活動"><lucide-icon name="copy" class="w-4 h-4"></lucide-icon></button>
+                                <button @click="editActivity(act)" class="p-1 text-[#A0AAB2] hover:text-[#7A90A4] transition-colors"><lucide-icon name="edit-2" class="w-4 h-4"></lucide-icon></button>
+                                <button @click="promptDeleteActivity(act.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
+                            </div>
+                        </div>
+                        <div class="text-sm text-[#7A8B99] mb-2 flex items-center"><lucide-icon name="user" class="w-3 h-3 mr-1.5 opacity-70"></lucide-icon> {{ act.participants.join(', ') }}</div>
+                        <div v-if="act.note" class="text-sm text-[#8FA39A] bg-white/40 p-2 rounded-lg flex items-start border border-white/50">
+                            <lucide-icon name="message-circle" class="w-3 h-3 mr-2 opacity-70 mt-0.5 shrink-0"></lucide-icon>{{ act.note }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增/編輯活動 Modal (層級高於歷史清單) -->
+        <div v-if="showAddActivityModal" @click.self="handleBackdropClick('activity')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-[55] p-4 pb-0 sm:pb-4">
+            <div class="bg-white/95 backdrop-blur-3xl border border-white/80 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">{{ isEditingActivity ? '編輯活動' : '新增活動' }}</h3><lucide-icon name="x" @click="handleBackdropClick('activity')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
+                <div class="space-y-4">
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">活動名稱</label><input type="text" v-model="newAct.title" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">日期</label><input type="date" v-model="newAct.date" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
+                    <div>
+                        <label class="block text-sm font-semibold text-[#7A8B99] mb-2">參與者</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button v-for="member in familyMembers" :key="member" @click="toggleParticipant(member)" :class="['px-3 py-1.5 rounded-lg text-sm transition-colors', newAct.participants.includes(member) ? 'bg-[#8FA39A] text-white shadow-sm' : 'bg-white/50 text-[#7A8B99] border border-white/80']">{{ member }}</button>
+                        </div>
+                    </div>
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">備註 (選填)</label><input type="text" v-model="newAct.note" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
+                    <button @click="submitActivity" class="w-full py-3.5 bg-[#7A90A4] text-white rounded-xl font-bold shadow-lg shadow-[#7A90A4]/30 hover:bg-[#687C8F] mt-2">{{ isEditingActivity ? '儲存變更' : '確認新增' }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 刪除活動確認 Modal -->
+        <div v-if="showDeleteActivityModal" @click.self="showDeleteActivityModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60] p-5">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <h3 class="text-xl font-bold text-[#5B6A78] mb-3">確認刪除活動？</h3>
+                <p class="text-[#7A8B99] mb-6 text-sm">此操作將同步刪除雲端資料，確定要移除嗎？</p>
+                <div class="flex space-x-3">
+                    <button @click="showDeleteActivityModal = false" class="flex-1 py-3 bg-white/50 text-[#7A8B99] rounded-xl font-semibold hover:bg-white/80 transition-colors">取消</button>
+                    <button @click="confirmDeleteActivityAct" class="flex-1 py-3 bg-[#B5989A] text-white rounded-xl font-semibold shadow-lg shadow-[#B5989A]/30 hover:bg-[#A38688] transition-colors">確認刪除</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增/編輯費用 -->
+        <div v-if="showAddExpenseModal" @click.self="handleBackdropClick('expense')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4 pb-0 sm:pb-4">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">{{ isEditingExpense ? '編輯費用' : '新增費用' }}</h3><lucide-icon name="x" @click="handleBackdropClick('expense')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#7A8B99] mb-1">費用類別</label>
+                        <select v-model="newExpense.category" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#8FA39A]/50">
+                            <option v-for="cat in expenseCategories" :key="cat" :value="cat">{{ cat }}</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">金額 (NT$)</label><input type="number" v-model="newExpense.amount" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#8FA39A]/50" placeholder="例如: 1500" /></div>
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">日期</label><input type="date" v-model="newExpense.date" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#8FA39A]/50" /></div>
+                    <button @click="submitExpense" class="w-full py-3.5 bg-[#8FA39A] text-white rounded-xl font-bold shadow-lg shadow-[#8FA39A]/30 hover:bg-[#7D9188] mt-2">{{ isEditingExpense ? '儲存變更' : '儲存紀錄' }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 刪除費用確認 Modal -->
+        <div v-if="showDeleteExpenseModal" @click.self="showDeleteExpenseModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60] p-5">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <h3 class="text-xl font-bold text-[#5B6A78] mb-3">確認刪除費用紀錄？</h3>
+                <p class="text-[#7A8B99] mb-6 text-sm">此操作將同步刪除雲端資料，確定要移除嗎？</p>
+                <div class="flex space-x-3">
+                    <button @click="showDeleteExpenseModal = false" class="flex-1 py-3 bg-white/50 text-[#7A8B99] rounded-xl font-semibold hover:bg-white/80 transition-colors">取消</button>
+                    <button @click="confirmDeleteExpenseAct" class="flex-1 py-3 bg-[#B5989A] text-white rounded-xl font-semibold shadow-lg shadow-[#B5989A]/30 hover:bg-[#A38688] transition-colors">確認刪除</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 歷史目標清單 Modal -->
+        <div v-if="showPastGoalsModal" @click.self="showPastGoalsModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-[50] p-4 pb-0 sm:pb-4">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm h-[85vh] flex flex-col animate-fade-in-up">
+                <div class="flex justify-between items-center mb-5 shrink-0">
+                    <h3 class="text-xl font-bold text-[#5B6A78]">歷史{{ goalTab === 'personal' ? '個人' : '家庭' }}目標</h3>
+                    <lucide-icon name="x" @click="showPastGoalsModal = false" class="text-[#A0AAB2] cursor-pointer"></lucide-icon>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-hide">
+                    <div v-if="pastGoals.length === 0" class="text-center text-[#A0AAB2] py-10">目前沒有歷史目標資料</div>
+                    <div v-for="goal in pastGoals" :key="goal.id" class="bg-white/60 backdrop-blur-xl border border-white/60 shadow-sm rounded-2xl p-4 border-l-4 border-l-[#A0AAB2]">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex flex-col">
+                                <h4 class="font-bold text-[#5B6A78] text-[15px] leading-tight line-through opacity-70">{{ goal.title }}</h4>
+                            </div>
+                            <div class="flex space-x-1.5 ml-2">
+                                <button @click="copyGoal(goal)" class="p-1 text-[#A0AAB2] hover:text-[#8FA39A] transition-colors" title="複製為新目標"><lucide-icon name="copy" class="w-4 h-4"></lucide-icon></button>
+                                <button @click="editGoal(goal)" class="p-1 text-[#A0AAB2] hover:text-[#7A90A4] transition-colors"><lucide-icon name="edit-2" class="w-4 h-4"></lucide-icon></button>
+                                <button @click="promptDeleteGoal(goal.id)" class="p-1 text-[#A0AAB2] hover:text-[#B5989A] transition-colors"><lucide-icon name="trash-2" class="w-4 h-4"></lucide-icon></button>
+                            </div>
+                        </div>
+                        <div class="text-[11px] text-[#7A8B99] flex items-center space-x-2">
+                            <span class="bg-[#F0EEE9] text-[#9A8F84] px-2 py-0.5 rounded-md shadow-sm">{{ goal.freq }}</span>
+                            <span v-if="goal.deadline">過期日: {{ goal.deadline }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增/編輯目標 -->
+        <div v-if="showAddGoalModal" @click.self="handleBackdropClick('goal')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-[55] p-4 pb-0 sm:pb-4">
+            <div class="bg-white/95 backdrop-blur-3xl border border-white/80 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">{{ isEditingGoal ? '編輯' : '新增' }}{{ goalTab === 'personal' ? '個人' : '家庭' }}目標</h3><lucide-icon name="x" @click="handleBackdropClick('goal')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
+                <div class="space-y-4">
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">目標名稱</label><input type="text" v-model="newGoal.title" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#8FA39A]/50" /></div>
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">截止日 (選填)</label><input type="date" v-model="newGoal.deadline" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#8FA39A]/50" /></div>
+                    <div>
+                        <label class="block text-sm font-semibold text-[#7A8B99] mb-1">頻率</label>
+                        <select v-model="newGoal.freq" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#8FA39A]/50">
+                            <option v-for="f in ['一次性', '每天', '每週', '每月']" :key="f" :value="f">{{ f }}</option>
+                        </select>
+                    </div>
+                    <button @click="submitGoal" class="w-full py-3.5 bg-[#8FA39A] text-white rounded-xl font-bold shadow-lg shadow-[#8FA39A]/30 hover:bg-[#7D9188] mt-2">{{ isEditingGoal ? '儲存變更' : '確認新增' }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 刪除目標確認 Modal -->
+        <div v-if="showDeleteGoalModal" @click.self="showDeleteGoalModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[60] p-5">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <h3 class="text-xl font-bold text-[#5B6A78] mb-3">確認刪除目標？</h3>
+                <p class="text-[#7A8B99] mb-6 text-sm">確定要永遠移除這個目標嗎？</p>
+                <div class="flex space-x-3">
+                    <button @click="showDeleteGoalModal = false" class="flex-1 py-3 bg-white/50 text-[#7A8B99] rounded-xl font-semibold hover:bg-white/80 transition-colors">取消</button>
+                    <button @click="confirmDeleteGoalAct" class="flex-1 py-3 bg-[#B5989A] text-white rounded-xl font-semibold shadow-lg shadow-[#B5989A]/30 hover:bg-[#A38688] transition-colors">確認刪除</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增捷徑 -->
+        <div v-if="showAddShortcutModal" @click.self="handleBackdropClick('shortcut')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4 pb-0 sm:pb-4">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">新增自訂捷徑</h3><lucide-icon name="x" @click="handleBackdropClick('shortcut')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#7A8B99] mb-2">選擇圖示</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button v-for="i in availableIcons" :key="i" @click="newShortcut.icon = i" :class="['p-3 rounded-xl flex justify-center items-center transition-all', newShortcut.icon === i ? 'bg-[#7A90A4] text-white shadow-md' : 'bg-white/60 text-[#A0AAB2] hover:bg-white']">
+                                <lucide-icon :name="i" class="w-6 h-6"></lucide-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">捷徑標題</label><input type="text" v-model="newShortcut.label" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
+                    <div><label class="block text-sm font-semibold text-[#7A8B99] mb-1">網址超連結</label><input type="url" v-model="newShortcut.url" class="w-full bg-white/60 border border-white/80 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#7A90A4]/50" /></div>
+                    <button @click="submitShortcut" class="w-full py-3.5 bg-[#7A90A4] text-white rounded-xl font-bold shadow-lg shadow-[#7A90A4]/30 hover:bg-[#687C8F] mt-2">建立捷徑</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 刪除捷徑確認 -->
+        <div v-if="confirmDeleteShortcut" @click.self="confirmDeleteShortcut = null" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-5">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <h3 class="text-xl font-bold text-[#5B6A78] mb-3">確認刪除捷徑？</h3>
+                <p class="text-[#7A8B99] mb-6 text-sm">此操作無法復原，確定要移除此捷徑嗎？</p>
+                <div class="flex space-x-3">
+                    <button @click="confirmDeleteShortcut = null" class="flex-1 py-3 bg-white/50 text-[#7A8B99] rounded-xl font-semibold hover:bg-white/80 transition-colors">取消</button>
+                    <button @click="executeDeleteShortcut" class="flex-1 py-3 bg-[#B5989A] text-white rounded-xl font-semibold shadow-lg shadow-[#B5989A]/30 hover:bg-[#A38688] transition-colors">確認刪除</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 家事轉盤 -->
+        <div v-if="showRouletteModal" @click.self="showRouletteModal = false" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-5">
+            <div class="bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-8 w-full max-w-sm text-center relative">
+                <lucide-icon name="x" @click="showRouletteModal = false" class="absolute top-5 right-5 text-[#A0AAB2] hover:text-[#5B6A78] cursor-pointer"></lucide-icon>
+                <h2 class="text-xl font-bold mb-6 text-[#5B6A78]">命運的家事轉盤</h2>
+                <div class="h-32 flex items-center justify-center mb-6 bg-white/40 rounded-2xl border border-white/60 shadow-inner">
+                    <lucide-icon v-if="isSpinning" name="dices" class="w-16 h-16 text-[#B5989A] animate-spin"></lucide-icon>
+                    <div v-else-if="rouletteResult" class="text-lg font-bold text-[#B5989A] animate-pulse px-4">{{ rouletteResult }}</div>
+                    <p v-else class="text-[#A0AAB2] text-sm font-medium">點擊下方按鈕開始抽籤</p>
+                </div>
+                <button @click="playRoulette" :disabled="isSpinning" :class="['w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all', isSpinning ? 'bg-[#C4CDD5] cursor-not-allowed shadow-none' : 'bg-[#B5989A] active:scale-95 hover:bg-[#A38688]']">
+                    {{ isSpinning ? '抽取中...' : '開始轉盤' }}
+                </button>
+            </div>
+        </div>
+
+        <!-- 取消編輯確認 Modal -->
+        <div v-if="showCancelConfirmModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[65] p-5">
+            <div class="bg-white/95 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
+                <h3 class="text-xl font-bold text-[#5B6A78] mb-3 text-center">確認取消編輯？</h3>
+                <p class="text-[#7A8B99] mb-6 text-sm text-center">您有尚未儲存的資料，確定要放棄編輯嗎？</p>
+                <div class="flex space-x-3">
+                    <button @click="showCancelConfirmModal = false" class="flex-1 py-3 bg-white/50 text-[#7A8B99] rounded-xl font-semibold hover:bg-white/80 transition-colors">繼續編輯</button>
+                    <button @click="confirmCancel" class="flex-1 py-3 bg-[#B5989A] text-white rounded-xl font-semibold shadow-lg shadow-[#B5989A]/30 hover:bg-[#A38688] transition-colors">確認放棄</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 同步讀取中 Modal -->
+        <div v-if="isSyncing" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[70] p-5">
+            <div class="bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-8 flex flex-col items-center justify-center animate-fade-in-up">
+                <lucide-icon name="refresh-cw" class="w-12 h-12 text-[#8FA39A] animate-spin mb-4"></lucide-icon>
+                <h3 class="text-lg font-bold text-[#5B6A78]">資料同步中...</h3>
+            </div>
+        </div>
+
+        <!-- 同步成功 Modal -->
+        <div v-if="showSyncSuccess" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[70] p-5">
+            <div class="bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-8 flex flex-col items-center justify-center animate-fade-in-up">
+                <lucide-icon name="check-circle" class="w-12 h-12 text-[#8FA39A] mb-4"></lucide-icon>
+                <h3 class="text-lg font-bold text-[#5B6A78]">同步成功！</h3>
+            </div>
+        </div>
+
+        <!-- 全域 Toast -->
+        <div v-if="showToast" class="fixed top-8 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl border border-white/80 shadow-[0_10px_40px_rgba(0,0,0,0.15)] z-[9999] animate-fade-in-up flex items-center justify-center space-x-3 w-11/12 max-w-sm px-5 py-4 rounded-2xl">
+            <lucide-icon name="bell" class="w-5 h-5 text-[#8FA39A] flex-shrink-0"></lucide-icon>
+            <span class="text-sm flex-1 font-bold text-[#5B6A78] text-center">{{ toastMsg }}</span>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwoANE0JKbf6yw75EBnAdfi2Zn_br9UOdNufaqY8pgULckj4dlolqT8AiXLVNFUznnX/exec"; 
+    
+    const LucideIcon = {
+        props: ['name', 'class'],
+        template: `<span class="contents" v-html="svgHtml"></span>`,
+        computed: {
+            svgHtml() {
+                const camelName = this.name.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+                if (lucide.icons[camelName]) {
+                    const dummy = document.createElement('div');
+                    dummy.innerHTML = `<i data-lucide="${this.name}" class="${this.class || ''}"></i>`;
+                    lucide.createIcons({ root: dummy });
+                    return dummy.innerHTML;
+                }
+                return '';
+            }
+        }
+    };
+
+    const setupPWA = () => {
+        const manifest = {
+            name: "健珊瑋妘愛的甜蜜小窩",
+            short_name: "甜蜜小窩",
+            display: "standalone",
+            background_color: "#F4F5F7",
+            theme_color: "#8FA39A",
+            icons: [{"src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>","sizes": "192x192","type": "image/svg+xml"}]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestURL;
+        document.head.appendChild(link);
+    };
+
+    const app = createApp({
+        setup() {
+            // --- UI 狀態 ---
+            const activeTab = ref('home');
+            const showToast = ref(false);
+            const toastMsg = ref('');
+            
+            // --- 資料狀態 ---
+            const userName = ref(localStorage.getItem('familyApp_userName') || '');
+            const inputName = ref(userName.value);
+            const dailyScripture = ref("「凡事包容，凡事相信，凡事盼望，凡事忍耐。」- 哥林多前書 13:7");
+
+            const familyMembers = ['爸爸', '媽媽', '哥哥', '妹妹'];
+            const expenseCategories = ['房租', '管理費', '水費', '電費', '瓦斯費', '其他'];
+            
+            const personalGoals = ref(JSON.parse(localStorage.getItem('familyApp_personalGoals')) || []);
+            const familyGoals = ref([]);
+            const activities = ref([]);
+            const expenses = ref([]);
+
+            const shortcuts = ref(JSON.parse(localStorage.getItem('familyApp_shortcuts')) || [
+                { id: '1', icon: 'message-circle', label: '家庭群組', type: 'line', color: 'text-[#8FA39A]', isCustom: false },
+                { id: '2', icon: 'map', label: '桃園景點', type: 'link', url: '#', color: 'text-[#7A90A4]', isCustom: false },
+                { id: '3', icon: 'dices', label: '家事轉盤', type: 'roulette', color: 'text-[#B5989A]', isCustom: false },
+                { id: '4', icon: 'chef-hat', label: '料理推薦', type: 'link', url: '#', color: 'text-[#D4C3B3]', isCustom: false },
+                { id: '5', icon: 'shopping-cart', label: '買菜清單', type: 'link', url: '#', color: 'text-[#A39E99]', isCustom: false },
+            ]);
+
+            // --- GAS 雲端通訊功能 ---
+            const syncToGas = async (sheetName, action, payload = null) => {
+                try {
+                    let url = `${GAS_URL}?sheet=${sheetName}&action=${action}`;
+                    let options = { method: 'GET' };
+                    
+                    if(action === 'add' || action === 'update' || action === 'delete') {
+                        options = {
+                            method: 'POST',
+                            body: JSON.stringify(payload),
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                        };
+                    }
+                    
+                    const res = await fetch(url, options);
+                    const result = await res.json();
+                } catch (error) {
+                    console.error('GAS 同步錯誤:', error);
+                    triggerToastMsg('部分雲端同步可能失敗，請檢查網路或 GAS 部署權限設定。');
+                }
+            };
+
+            // 目標自動展期或移除核心邏輯
+            const processGoals = (goalsList, isCloud) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let modified = false;
+                let result = [];
+
+                for (let i = 0; i < goalsList.length; i++) {
+                    let goal = goalsList[i];
+                    if (goal.done && goal.deadline) {
+                        const dDate = new Date(goal.deadline.replace(/-/g, '/'));
+                        dDate.setHours(0, 0, 0, 0);
+
+                        // 判斷是否超過截止日
+                        if (dDate < today) {
+                            if (goal.freq === '一次性') {
+                                // 轉為歷史紀錄，不再主動刪除
+                            } else {
+                                // 自動延長時間並設為未完成
+                                modified = true;
+                                const newDate = new Date(dDate);
+                                if (goal.freq === '每天') newDate.setDate(newDate.getDate() + 1);
+                                if (goal.freq === '每週') newDate.setDate(newDate.getDate() + 7);
+                                if (goal.freq === '每月') newDate.setMonth(newDate.getMonth() + 1);
+
+                                goal.deadline = `${newDate.getFullYear()}/${String(newDate.getMonth()+1).padStart(2, '0')}/${String(newDate.getDate()).padStart(2, '0')}`;
+                                goal.done = false;
+                                if (isCloud) syncToGas('目標', 'update', { ...goal });
+                            }
+                        }
+                    }
+                    result.push(goal);
+                }
+                return { result, modified };
+            };
+
+            const loadCloudData = async () => {
+                isSyncing.value = true;
+                try {
+                    const res = await fetch(`${GAS_URL}?action=readAll`);
+                    if (!res.ok) throw new Error(`HTTP 錯誤! 狀態碼: ${res.status}`);
+
+                    const data = await res.json();
+                    
+                    if (data.activities) activities.value = data.activities;
+                    if (data.expenses) expenses.value = data.expenses;
+                    if (data.familyGoals) {
+                        const cloudProcess = processGoals(data.familyGoals, true);
+                        familyGoals.value = cloudProcess.result;
+                    }
+                    
+                } catch (error) {
+                    console.warn('GAS 讀取失敗', error);
+                    triggerToastMsg('雲端資料讀取失敗，請確認 GAS 部署權限為「所有人」。');
+                } finally {
+                    isSyncing.value = false;
+                }
+            };
+
+            // --- 更新與同步邏輯 ---
+            const isSyncing = ref(false);
+            const showSyncSuccess = ref(false);
+            const manualSync = async () => {
+                await loadCloudData();
+                showSyncSuccess.value = true;
+                setTimeout(() => showSyncSuccess.value = false, 1500);
+            };
+
+            // --- 導覽列與介面操作 ---
+            const navItems = [
+                { id: 'home', icon: 'home', label: '首頁' },
+                { id: 'activities', icon: 'calendar', label: '活動' },
+                { id: 'reports', icon: 'bar-chart-2', label: '報表' },
+                { id: 'goals', icon: 'target', label: '目標' },
+                { id: 'settings', icon: 'settings', label: '設定' }
+            ];
+
+            const triggerToastMsg = (msg) => {
+                toastMsg.value = msg;
+                showToast.value = true;
+                setTimeout(() => showToast.value = false, 3000);
+            };
+
+            // --- 通用取消編輯防呆邏輯 ---
+            const showCancelConfirmModal = ref(false);
+            const cancelTarget = ref(null);
+
+            const handleBackdropClick = (target) => {
+                let hasData = false;
+                if (target === 'activity') hasData = newAct.value.title || newAct.value.date || newAct.value.participants.length > 0 || newAct.value.note;
+                if (target === 'expense') hasData = newExpense.value.amount;
+                if (target === 'goal') hasData = newGoal.value.title || newGoal.value.deadline;
+                if (target === 'shortcut') hasData = newShortcut.value.label || newShortcut.value.url;
+
+                if (hasData) {
+                    cancelTarget.value = target;
+                    showCancelConfirmModal.value = true;
+                } else {
+                    closeModal(target);
+                }
+            };
+
+            const closeModal = (target) => {
+                if (target === 'activity') { 
+                    showAddActivityModal.value = false; 
+                    isEditingActivity.value = false;
+                    editingActId.value = null;
+                    newAct.value = { title: '', date: '', participants: [], note: '' }; 
+                }
+                if (target === 'expense') { 
+                    showAddExpenseModal.value = false; 
+                    isEditingExpense.value = false;
+                    editingExpId.value = null;
+                    newExpense.value = { category: '水費', amount: '', date: new Date().toISOString().split('T')[0] }; 
+                }
+                if (target === 'goal') { 
+                    showAddGoalModal.value = false; 
+                    isEditingGoal.value = false;
+                    editingGoalId.value = null;
+                    newGoal.value = { title: '', deadline: '', freq: '一次性' }; 
+                }
+                if (target === 'shortcut') { showAddShortcutModal.value = false; newShortcut.value = { icon: 'star', label: '', url: '', color: 'text-[#7A90A4]' }; }
+            };
+
+            const confirmCancel = () => {
+                closeModal(cancelTarget.value);
+                showCancelConfirmModal.value = false;
+                cancelTarget.value = null;
+            };
+
+            // --- 首頁邏輯 ---
+            const showHomeConfirm = ref(false);
+            const homeActionType = ref('');
+            const confirmHomeAction = (type) => {
+                homeActionType.value = type;
+                showHomeConfirm.value = true;
+            };
+            const executeHomeAction = () => {
+                syncToGas('首頁', 'add', { 姓名: userName.value || '家人', 狀態: homeActionType.value, 時間: new Date().toISOString() });
+                triggerToastMsg(`已發送通知：${userName.value || '家人'} 已${homeActionType.value === 'home' ? '到家' : '出門'}！`);
+                showHomeConfirm.value = false;
+            };
+
+            // --- 活動邏輯 ---
+            const activityFilter = ref('全部');
+            const showAddActivityModal = ref(false);
+            const showPastActivitiesModal = ref(false);
+            const newAct = ref({ title: '', date: '', participants: [], note: '' });
+            
+            const filteredActivities = computed(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); 
+                let res = activityFilter.value === '全部' ? activities.value : activities.value.filter(a => a.participants.includes(activityFilter.value));
+                res = res.filter(a => {
+                    const actDate = new Date(a.date);
+                    actDate.setHours(0, 0, 0, 0);
+                    return actDate >= today;
+                });
+                return res.sort((a, b) => new Date(a.date) - new Date(b.date));
+            });
+
+            // 過去活動清單 (供歷史活動彈出視窗使用)
+            const pastActivities = computed(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); 
+                return activities.value.filter(a => {
+                    const actDate = new Date(a.date);
+                    actDate.setHours(0, 0, 0, 0);
+                    return actDate < today;
+                }).sort((a, b) => new Date(b.date) - new Date(a.date)); // 日期較近的在上
+            });
+
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                const days = ['日', '一', '二', '三', '四', '五', '六'];
+                return `${date.getMonth() + 1}/${date.getDate()} (${days[date.getDay()]})`;
+            };
+
+            const toggleParticipant = (p) => {
+                const arr = newAct.value.participants;
+                if(arr.includes(p)) newAct.value.participants = arr.filter(x => x !== p);
+                else newAct.value.participants.push(p);
+            };
+
+            const isEditingActivity = ref(false);
+            const editingActId = ref(null);
+            const showDeleteActivityModal = ref(false);
+            const deleteActId = ref(null);
+
+            const copyActivity = (act) => {
+                isEditingActivity.value = false;
+                editingActId.value = null;
+                newAct.value = { title: act.title + ' (複製)', date: act.date.replace(/\//g, '-'), participants: [...act.participants], note: act.note };
+                showPastActivitiesModal.value = false;
+                showAddActivityModal.value = true;
+            };
+
+            const editActivity = (act) => {
+                isEditingActivity.value = true;
+                editingActId.value = act.id;
+                newAct.value = { ...act, participants: [...act.participants] };
+                newAct.value.date = act.date.replace(/\//g, '-'); 
+                showPastActivitiesModal.value = false;
+                showAddActivityModal.value = true;
+            };
+
+            const promptDeleteActivity = (id) => {
+                deleteActId.value = id;
+                showDeleteActivityModal.value = true;
+            };
+
+            const confirmDeleteActivityAct = () => {
+                activities.value = activities.value.filter(a => a.id !== deleteActId.value);
+                syncToGas('活動', 'delete', { id: deleteActId.value });
+                showDeleteActivityModal.value = false;
+                deleteActId.value = null;
+                triggerToastMsg('活動已刪除！');
+            };
+
+            const submitActivity = () => {
+                if(!newAct.value.title || !newAct.value.date) return triggerToastMsg('請填寫完整資訊');
+                
+                const formattedDate = newAct.value.date.replace(/-/g, '/');
+                const data = { id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), ...newAct.value, date: formattedDate };
+                
+                if (isEditingActivity.value) {
+                    const index = activities.value.findIndex(a => a.id === editingActId.value);
+                    if (index !== -1) activities.value[index] = data;
+                    syncToGas('活動', 'update', data);
+                    triggerToastMsg('活動已更新並同步！');
+                } else {
+                    activities.value.push(data);
+                    syncToGas('活動', 'add', data);
+                    triggerToastMsg('已新增活動並同步至雲端');
+                }
+                
+                closeModal('activity');
+            };
+
+            // --- 報表邏輯 ---
+            const showAddExpenseModal = ref(false);
+            const expandedExpenseCategory = ref(null);
+            const newExpense = ref({ category: '水費', amount: '', date: new Date().toISOString().split('T')[0] });
+            
+            const isEditingExpense = ref(false);
+            const editingExpId = ref(null);
+            const showDeleteExpenseModal = ref(false);
+            const deleteExpId = ref(null);
+
+            const getExpensesByCategory = (cat) => {
+                return expenses.value.filter(e => e.category === cat).sort((a, b) => new Date(b.date) - new Date(a.date));
+            };
+
+            const categoryTotals = computed(() => {
+                return expenses.value.reduce((acc, curr) => {
+                    acc[curr.category] = (acc[curr.category] || 0) + Number(curr.amount);
+                    return acc;
+                }, {});
+            });
+
+            const totalExpense = computed(() => Object.values(categoryTotals.value).reduce((a, b) => a + b, 0));
+            
+            const chartData = computed(() => [
+                { label: '水費', lastYear: 500, thisYear: categoryTotals.value['水費'] || 0 },
+                { label: '電費', lastYear: 1200, thisYear: categoryTotals.value['電費'] || 0 },
+                { label: '瓦斯', lastYear: 400, thisYear: categoryTotals.value['瓦斯費'] || 0 },
+                { label: '管理', lastYear: 2500, thisYear: categoryTotals.value['管理費'] || 0 },
+            ]);
+            
+            const chartMaxVal = computed(() => Math.max(1000, ...chartData.value.flatMap(d => [d.lastYear, d.thisYear])));
+
+            const editExpense = (exp) => {
+                isEditingExpense.value = true;
+                editingExpId.value = exp.id;
+                newExpense.value = { ...exp };
+                newExpense.value.date = exp.date.replace(/\//g, '-');
+                showAddExpenseModal.value = true;
+            };
+
+            const promptDeleteExpense = (id) => {
+                deleteExpId.value = id;
+                showDeleteExpenseModal.value = true;
+            };
+
+            const confirmDeleteExpenseAct = () => {
+                expenses.value = expenses.value.filter(e => e.id !== deleteExpId.value);
+                syncToGas('報表', 'delete', { id: deleteExpId.value });
+                showDeleteExpenseModal.value = false;
+                deleteExpId.value = null;
+                triggerToastMsg('費用已刪除！');
+            };
+
+            const submitExpense = () => {
+                if(!newExpense.value.amount) return triggerToastMsg('請填寫完整資訊');
+                
+                const formattedDate = newExpense.value.date.replace(/-/g, '/');
+                const data = { id: isEditingExpense.value ? editingExpId.value : 'EXP_' + Date.now(), ...newExpense.value, date: formattedDate };
+                
+                if (isEditingExpense.value) {
+                    const index = expenses.value.findIndex(e => e.id === editingExpId.value);
+                    if (index !== -1) expenses.value[index] = data;
+                    syncToGas('報表', 'update', data);
+                    triggerToastMsg('費用已更新並同步！');
+                } else {
+                    expenses.value.push(data);
+                    syncToGas('報表', 'add', data);
+                    triggerToastMsg('費用已新增並同步');
+                }
+
+                expandedExpenseCategory.value = data.category;
+                closeModal('expense');
+            };
+
+            // --- 目標邏輯 ---
+            const goalTab = ref('personal');
+            const showAddGoalModal = ref(false);
+            const showPastGoalsModal = ref(false);
+            const newGoal = ref({ title: '', deadline: '', freq: '一次性' });
+            
+            const isEditingGoal = ref(false);
+            const editingGoalId = ref(null);
+            const showDeleteGoalModal = ref(false);
+            const deleteGoalId = ref(null);
+            
+            const currentGoals = computed(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let list = goalTab.value === 'personal' ? personalGoals.value : familyGoals.value;
+                return list.filter(g => {
+                    // 過濾掉已過期且完成的一次性歷史目標，將其留在歷史清單
+                    if (g.done && g.deadline) {
+                        const dDate = new Date(g.deadline.replace(/-/g, '/'));
+                        dDate.setHours(0, 0, 0, 0);
+                        if (dDate < today) return false;
+                    }
+                    return true;
+                }).slice().sort((a, b) => {
+                    if (a.done === b.done) {
+                        return b.id > a.id ? 1 : -1; 
+                    }
+                    return a.done ? 1 : -1;
+                });
+            });
+
+            // 過去目標清單 (歷史紀錄)
+            const pastGoals = computed(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let list = goalTab.value === 'personal' ? personalGoals.value : familyGoals.value;
+                return list.filter(g => {
+                    if (!g.done || !g.deadline) return false;
+                    const dDate = new Date(g.deadline.replace(/-/g, '/'));
+                    dDate.setHours(0, 0, 0, 0);
+                    return dDate < today;
+                }).sort((a, b) => {
+                    const dateA = new Date(a.deadline.replace(/-/g, '/'));
+                    const dateB = new Date(b.deadline.replace(/-/g, '/'));
+                    return dateB - dateA;
+                });
+            });
+            
+            const toggleGoal = (goal) => {
+                goal.done = !goal.done;
+                if(goalTab.value === 'personal') {
+                    localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
+                } else {
+                    syncToGas('目標', 'update', { ...goal });
+                    triggerToastMsg('家庭目標狀態已同步');
+                }
+            };
+
+            const copyGoal = (goal) => {
+                isEditingGoal.value = false;
+                editingGoalId.value = null;
+                newGoal.value = { title: goal.title + ' (複製)', deadline: goal.deadline ? goal.deadline.replace(/\//g, '-') : '', freq: goal.freq, done: false };
+                showPastGoalsModal.value = false;
+                showAddGoalModal.value = true;
+            };
+
+            const editGoal = (goal) => {
+                isEditingGoal.value = true;
+                editingGoalId.value = goal.id;
+                newGoal.value = { ...goal };
+                newGoal.value.deadline = goal.deadline ? goal.deadline.replace(/\//g, '-') : '';
+                showPastGoalsModal.value = false;
+                showAddGoalModal.value = true;
+            };
+
+            const promptDeleteGoal = (id) => {
+                deleteGoalId.value = id;
+                showDeleteGoalModal.value = true;
+            };
+
+            const confirmDeleteGoalAct = () => {
+                if (goalTab.value === 'personal') {
+                    personalGoals.value = personalGoals.value.filter(g => g.id !== deleteGoalId.value);
+                    localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
+                } else {
+                    familyGoals.value = familyGoals.value.filter(g => g.id !== deleteGoalId.value);
+                    syncToGas('目標', 'delete', { id: deleteGoalId.value });
+                }
+                showDeleteGoalModal.value = false;
+                deleteGoalId.value = null;
+                triggerToastMsg('目標已刪除！');
+            };
+
+            const submitGoal = () => {
+                if(!newGoal.value.title) return triggerToastMsg('請填寫完整資訊');
+                
+                const formattedDate = newGoal.value.deadline ? newGoal.value.deadline.replace(/-/g, '/') : '';
+                const data = { 
+                    id: isEditingGoal.value ? editingGoalId.value : 'GOL_' + Date.now(), 
+                    ...newGoal.value, 
+                    deadline: formattedDate, 
+                    freq: newGoal.value.freq, 
+                    done: isEditingGoal.value ? newGoal.value.done : false 
+                };
+                
+                if(goalTab.value === 'personal') {
+                    if (isEditingGoal.value) {
+                        const idx = personalGoals.value.findIndex(g => g.id === editingGoalId.value);
+                        if (idx > -1) personalGoals.value[idx] = data;
+                    } else {
+                        personalGoals.value.push(data);
+                    }
+                    localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
+                    triggerToastMsg(isEditingGoal.value ? '已更新個人目標' : '已儲存個人目標');
+                } else {
+                    if (isEditingGoal.value) {
+                        const idx = familyGoals.value.findIndex(g => g.id === editingGoalId.value);
+                        if (idx > -1) familyGoals.value[idx] = data;
+                        syncToGas('目標', 'update', data);
+                        triggerToastMsg('已更新並同步家庭目標');
+                    } else {
+                        familyGoals.value.push(data);
+                        syncToGas('目標', 'add', data);
+                        triggerToastMsg('已新增並同步家庭目標');
+                    }
+                }
+                closeModal('goal');
+            };
+
+            // --- 設定與捷徑邏輯 ---
+            const isEditingShortcuts = ref(false);
+            const showAddShortcutModal = ref(false);
+            const confirmDeleteShortcut = ref(null);
+            const availableIcons = ['star', 'heart', 'link', 'map', 'message-circle', 'phone', 'camera', 'music', 'chevron-up', 'chevron-down', 'copy'];
+            const newShortcut = ref({ icon: 'star', label: '', url: '', color: 'text-[#7A90A4]' });
+            
+            const showRouletteModal = ref(false);
+            const isSpinning = ref(false);
+            const rouletteResult = ref(null);
+
+            const saveSettings = () => {
+                userName.value = inputName.value;
+                localStorage.setItem('familyApp_userName', userName.value);
+                triggerToastMsg('設定已儲存至本機！');
+            };
+
+            const handleShortcutClick = (item) => {
+                if(isEditingShortcuts.value) return;
+                if(item.type === 'roulette') showRouletteModal.value = true;
+                else if(item.url && item.url !== '#') window.open(item.url, '_blank');
+                else triggerToastMsg(`跳轉至：${item.label}`);
+            };
+
+            const moveShortcut = (index, dir) => {
+                const arr = shortcuts.value;
+                if(dir === -1 && index > 0) [arr[index], arr[index-1]] = [arr[index-1], arr[index]];
+                if(dir === 1 && index < arr.length-1) [arr[index], arr[index+1]] = [arr[index+1], arr[index]];
+                localStorage.setItem('familyApp_shortcuts', JSON.stringify(shortcuts.value));
+            };
+
+            const executeDeleteShortcut = () => {
+                shortcuts.value = shortcuts.value.filter(s => s.id !== confirmDeleteShortcut.value);
+                localStorage.setItem('familyApp_shortcuts', JSON.stringify(shortcuts.value));
+                confirmDeleteShortcut.value = null;
+                triggerToastMsg('捷徑已刪除！');
+            };
+
+            const submitShortcut = () => {
+                if(!newShortcut.value.label) return triggerToastMsg('請填寫捷徑標題');
+                shortcuts.value.push({ id: Date.now().toString(), type: 'link', isCustom: true, ...newShortcut.value });
+                localStorage.setItem('familyApp_shortcuts', JSON.stringify(shortcuts.value));
+                closeModal('shortcut');
+            };
+
+            const playRoulette = () => {
+                isSpinning.value = true;
+                rouletteResult.value = null;
+                setTimeout(() => {
+                    const chores = ['倒垃圾', '洗碗', '吸地板', '洗衣服', '整理客廳'];
+                    const p = familyMembers[Math.floor(Math.random() * familyMembers.length)];
+                    const c = chores[Math.floor(Math.random() * chores.length)];
+                    rouletteResult.value = `${p} 負責「${c}」！`;
+                    isSpinning.value = false;
+                }, 1500);
+            };
+
+            onMounted(() => {
+                setupPWA();
+                // 在掛載時自動處理本地目標的逾期更新
+                const localProcess = processGoals(personalGoals.value, false);
+                personalGoals.value = localProcess.result;
+                if (localProcess.modified) localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
+                
+                loadCloudData();
+            });
+
+            return {
+                activeTab, navItems, showToast, toastMsg, triggerToast: triggerToastMsg,
+                userName, inputName, dailyScripture, familyMembers, expenseCategories,
+                showHomeConfirm, homeActionType, confirmHomeAction, executeHomeAction,
+                isSyncing, showSyncSuccess, manualSync,
+                showCancelConfirmModal, handleBackdropClick, confirmCancel,
+                activityFilter, showAddActivityModal, showPastActivitiesModal, isEditingActivity, showDeleteActivityModal, pastActivities, newAct, filteredActivities, formatDate, editActivity, copyActivity, promptDeleteActivity, confirmDeleteActivityAct, toggleParticipant, submitActivity,
+                showAddExpenseModal, isEditingExpense, showDeleteExpenseModal, expandedExpenseCategory, getExpensesByCategory, newExpense, categoryTotals, totalExpense, chartData, chartMaxVal, editExpense, promptDeleteExpense, confirmDeleteExpenseAct, submitExpense,
+                goalTab, showAddGoalModal, showPastGoalsModal, newGoal, currentGoals, pastGoals, toggleGoal, submitGoal, isEditingGoal, promptDeleteGoal, showDeleteGoalModal, confirmDeleteGoalAct, editGoal, copyGoal,
+                shortcuts, isEditingShortcuts, showAddShortcutModal, confirmDeleteShortcut, availableIcons, newShortcut,
+                showRouletteModal, isSpinning, rouletteResult,
+                saveSettings, handleShortcutClick, moveShortcut, executeDeleteShortcut, submitShortcut, playRoulette
+            };
+        }
+    });
+
+    // 註冊安全圖標組件
+    app.component('lucide-icon', LucideIcon);
+    app.mount('#app');
+</script>
+</body>
+</html>
