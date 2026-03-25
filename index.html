@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>健珊瑋妘愛的甜蜜小窩</title>
+    
+    <!-- PWA 核心設定 -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#8FA39A">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 -->
@@ -34,6 +40,7 @@
         <header class="bg-white/40 backdrop-blur-md text-[#5B6A78] p-4 sticky top-0 z-20 border-b border-white/50 flex justify-between items-center">
             <h1 class="text-lg font-bold tracking-wider">健珊瑋妘愛的甜蜜小窩</h1>
             <div class="flex space-x-4 items-center">
+                <!-- 手動更新按鈕 -->
                 <button @click="manualSync" class="hover:text-[#8FA39A] transition-colors"><lucide-icon name="refresh-cw" class="w-5 h-5"></lucide-icon></button>
             </div>
         </header>
@@ -319,7 +326,7 @@
             </div>
         </div>
 
-        <!-- 新增/編輯活動 Modal (層級高於歷史清單) -->
+        <!-- 新增/編輯活動 Modal -->
         <div v-if="showAddActivityModal" @click.self="handleBackdropClick('activity')" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-end sm:items-center justify-center z-[55] p-4 pb-0 sm:pb-4">
             <div class="bg-white/95 backdrop-blur-3xl border border-white/80 shadow-2xl rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm animate-fade-in-up">
                 <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-[#5B6A78]">{{ isEditingActivity ? '編輯活動' : '新增活動' }}</h3><lucide-icon name="x" @click="handleBackdropClick('activity')" class="text-[#A0AAB2] cursor-pointer"></lucide-icon></div>
@@ -546,23 +553,6 @@
         }
     };
 
-    const setupPWA = () => {
-        const manifest = {
-            name: "健珊瑋妘愛的甜蜜小窩",
-            short_name: "甜蜜小窩",
-            display: "standalone",
-            background_color: "#F4F5F7",
-            theme_color: "#8FA39A",
-            icons: [{"src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>","sizes": "192x192","type": "image/svg+xml"}]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-        const manifestURL = URL.createObjectURL(manifestBlob);
-        const link = document.createElement('link');
-        link.rel = 'manifest';
-        link.href = manifestURL;
-        document.head.appendChild(link);
-    };
-
     const app = createApp({
         setup() {
             // --- UI 狀態 ---
@@ -613,7 +603,7 @@
                 }
             };
 
-            // 目標自動展期或移除核心邏輯
+            // 目標自動展期或保留歷史核心邏輯
             const processGoals = (goalsList, isCloud) => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -649,8 +639,8 @@
                 return { result, modified };
             };
 
-            const loadCloudData = async () => {
-                isSyncing.value = true;
+            const loadCloudData = async (showUI = false) => {
+                if(showUI) isSyncing.value = true;
                 try {
                     const res = await fetch(`${GAS_URL}?action=readAll`);
                     if (!res.ok) throw new Error(`HTTP 錯誤! 狀態碼: ${res.status}`);
@@ -666,9 +656,9 @@
                     
                 } catch (error) {
                     console.warn('GAS 讀取失敗', error);
-                    triggerToastMsg('雲端資料讀取失敗，請確認 GAS 部署權限為「所有人」。');
+                    if(showUI) triggerToastMsg('雲端資料讀取失敗，請確認 GAS 部署權限為「所有人」。');
                 } finally {
-                    isSyncing.value = false;
+                    if(showUI) isSyncing.value = false;
                 }
             };
 
@@ -676,7 +666,7 @@
             const isSyncing = ref(false);
             const showSyncSuccess = ref(false);
             const manualSync = async () => {
-                await loadCloudData();
+                await loadCloudData(true);
                 showSyncSuccess.value = true;
                 setTimeout(() => showSyncSuccess.value = false, 1500);
             };
@@ -782,7 +772,7 @@
                     const actDate = new Date(a.date);
                     actDate.setHours(0, 0, 0, 0);
                     return actDate < today;
-                }).sort((a, b) => new Date(b.date) - new Date(a.date)); // 日期較近的在上
+                }).sort((a, b) => new Date(b.date) - new Date(a.date));
             });
 
             const formatDate = (dateStr) => {
@@ -1114,13 +1104,22 @@
             };
 
             onMounted(() => {
-                setupPWA();
+                // 註冊真正的 Service Worker，因為有了真實的 sw.js 跟 manifest
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('./sw.js').then((registration) => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    }).catch((err) => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+                }
+
                 // 在掛載時自動處理本地目標的逾期更新
                 const localProcess = processGoals(personalGoals.value, false);
                 personalGoals.value = localProcess.result;
                 if (localProcess.modified) localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
                 
-                loadCloudData();
+                // 背景默默同步雲端資料，不顯示 Loading 彈窗
+                loadCloudData(false);
             });
 
             return {
