@@ -9,6 +9,16 @@
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#8FA39A">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <!-- PWA 通知核心設定OneSignal -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "ba8fe009-4a80-4e3e-a79a-62fbe8b68cbc",
+        });
+      });
+    </script>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -641,7 +651,7 @@
 <script>
     const { createApp, ref, computed, onMounted } = Vue;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxi6WlvRKjRuHPkE3OmQto4yHOxkW0hiuNd7hoYb8-6XAOzD8LjCGmP75g33DI3UjhG/exec"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxJpnNNDl3xIGIiCqXDWje8SORRtvdDURgXhfLyw2nIqzdc2ihmZ6T-aZGiXFIf5i0O/exec"; 
     
     const LucideIcon = {
         props: ['name', 'class'],
