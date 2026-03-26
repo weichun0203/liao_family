@@ -16,9 +16,6 @@
       OneSignalDeferred.push(async function(OneSignal) {
         await OneSignal.init({
           appId: "ba8fe009-4a80-4e3e-a79a-62fbe8b68cbc",
-          // 🌟 關鍵 1：強制指定 Service Worker 的路徑為當前目錄
-          serviceWorkerParam: { scope: './' },
-          serviceWorkerPath: 'OneSignalSDKWorker.js'
         });
       });
     </script>
@@ -654,7 +651,7 @@
 <script>
     const { createApp, ref, computed, onMounted } = Vue;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxDuI-tO2uDMIdeMwr8Rq3y05DkL0uw9Ku9oTYxOjVcyS7ejkhtKcu5Ta506nP3i_jy/exec"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxNKa4yrBFhOrqTR-O1CryvAHmR6AWzCH6t4tRHzl_NxG8T5Obd28fK_BMBWy0FcuwQ/exec"; 
     
     const LucideIcon = {
         props: ['name', 'class'],
@@ -892,8 +889,18 @@
                 showHomeConfirm.value = true;
             };
             const executeHomeAction = () => {
-                syncToGas('首頁', 'add', { 姓名: userName.value || '家人', 狀態: homeActionType.value, 時間: new Date().toISOString() });
-                triggerToastMsg(`已發送通知：${userName.value || '家人'} 已${homeActionType.value === 'home' ? '到家' : '出門'}！`);
+                const uName = userName.value || '家人';
+                const actionStr = homeActionType.value === 'home' ? '到家了' : '出門了';
+                const msg = `${uName} ${actionStr}`;
+
+                syncToGas('首頁', 'add', { 
+                    姓名: uName, 
+                    狀態: homeActionType.value, 
+                    時間: new Date().toISOString(),
+                    // ✅ 增加 notifyMsg，讓 GAS 知道要發送推播
+                    notifyMsg: msg 
+                });
+                triggerToastMsg(`已發送通知：${msg}！`);
                 showHomeConfirm.value = false;
             };
 
@@ -1068,13 +1075,7 @@
                 const formattedDate = newAct.value.date.replace(/-/g, '/');
                 const formattedEndDate = newAct.value.endDate ? newAct.value.endDate.replace(/-/g, '/') : '';
                 
-               const data = { 
-                    id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), 
-                    ...newAct.value, 
-                    date: formattedDate, 
-                    endDate: formattedEndDate,
-                    creator: userName.value || '家人' // 🌟 新增這行：記錄建立者
-                };
+                const data = { id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), ...newAct.value, date: formattedDate, endDate: formattedEndDate };
                 delete data.isMultiDay;
                 
                 if (isEditingActivity.value) {
@@ -1084,7 +1085,10 @@
                     triggerToastMsg('活動已更新並同步！');
                 } else {
                     activities.value.push(data);
-                    syncToGas('活動', 'add', data);
+                    const uName = userName.value || '家人';
+                    // ✅ 增加 notifyMsg，如果是新增活動就發推播
+                    const payload = { ...data, notifyMsg: `${uName} 建立新活動：${newAct.value.title}` };
+                    syncToGas('活動', 'add', payload);
                     triggerToastMsg('已新增活動並同步至雲端');
                 }
                 closeModal('activity');
@@ -1440,118 +1444,6 @@
     app.mount('#app');
 </script>
 
-<!--
-請到 Google Sheets 裡點擊 [擴充功能] -> [Apps Script]，貼上以下「完整」的程式碼並重新部署：
 
-function doGet(e) {
-  var sheetId = "142v1RLL_ovgnW2C4Z9Cgw3GUHssVQY2WYeJwbZixQRI"; // 你的試算表 ID
-  var ss = SpreadsheetApp.openById(sheetId);
-  var action = e.parameter.action;
-
-  var output = ContentService.createTextOutput();
-  output.setMimeType(ContentService.MimeType.JSON);
-
-  if (action === 'readAll') {
-    var result = {
-      // 活動新增 endDate 欄位讀取
-      activities: getSheetData(ss, '活動', ['id', 'title', 'date', 'participants', 'note', 'endDate']),
-      expenses: getSheetData(ss, '報表', ['id', 'category', 'amount', 'date']),
-      familyGoals: getSheetData(ss, '目標', ['id', 'title', 'deadline', 'freq', 'done']),
-      scriptures: getSheetData(ss, '經文', ['text']) // 讀取經文
-    };
-    output.setContent(JSON.stringify(result));
-    return output;
-  }
-  
-  output.setContent(JSON.stringify({status: "ok"}));
-  return output;
-}
-
-function getSheetData(ss, sheetName, keys) {
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return [];
-  var data = sheet.getDataRange().getDisplayValues(); 
-  if (data.length <= 1) return [];
-  var result = [];
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var obj = {};
-    for (var j = 0; j < keys.length; j++) {
-      var val = row[j];
-      if (keys[j] === 'participants') {
-        obj[keys[j]] = val ? val.split(',') : [];
-      } else if (keys[j] === 'done') {
-        obj[keys[j]] = (val === 'true' || val === 'TRUE' || val === '1' || val === true);
-      } else {
-        obj[keys[j]] = val;
-      }
-    }
-    result.push(obj);
-  }
-  return result;
-}
-
-function doPost(e) {
-  var sheetId = "142v1RLL_ovgnW2C4Z9Cgw3GUHssVQY2WYeJwbZixQRI"; // 你的試算表 ID
-  var ss = SpreadsheetApp.openById(sheetId);
-  var sheetName = e.parameter.sheet; 
-  var action = e.parameter.action;
-  
-  if (!sheetName) return ContentService.createTextOutput("Error");
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return ContentService.createTextOutput("Error");
-
-  var data = JSON.parse(e.postData.contents);
-
-  if (action === 'add') {
-    var rowData = [];
-    // 把 endDate 放在最後一欄(F欄)最保險，不破壞舊有順序
-    if (sheetName === '活動') rowData = [data.id, data.title, data.date, data.participants.join(','), data.note, data.endDate || ''];
-    else if (sheetName === '報表') rowData = [data.id, data.category, data.amount, data.date];
-    else if (sheetName === '目標') rowData = [data.id, data.title, data.deadline, data.freq, data.done];
-    else if (sheetName === '首頁') rowData = [data.姓名, data.狀態, data.時間];
-    
-    if (rowData.length > 0) {
-      sheet.insertRowAfter(1);
-      sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
-    }
-  } else if (action === 'update' && sheetName === '目標') {
-    var values = sheet.getDataRange().getValues();
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][0]) === String(data.id)) {
-        sheet.getRange(i + 1, 3, 1, 3).setValues([[data.deadline, data.freq, data.done]]);
-        break;
-      }
-    }
-  } else if (action === 'update' && sheetName === '活動') {
-    var values = sheet.getDataRange().getValues();
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][0]) === String(data.id)) {
-        // 更新從 B 欄到 F 欄 (共 5 欄)
-        sheet.getRange(i + 1, 2, 1, 5).setValues([[data.title, data.date, data.participants.join(','), data.note, data.endDate || '']]);
-        break;
-      }
-    }
-  } else if (action === 'update' && sheetName === '報表') {
-    var values = sheet.getDataRange().getValues();
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][0]) === String(data.id)) {
-        sheet.getRange(i + 1, 2, 1, 3).setValues([[data.category, data.amount, data.date]]);
-        break;
-      }
-    }
-  } else if (action === 'delete') {
-    var values = sheet.getDataRange().getValues();
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][0]) === String(data.id)) {
-        sheet.deleteRow(i + 1);
-        break;
-      }
-    }
-  }
-
-  return ContentService.createTextOutput(JSON.stringify({status: "success"})).setMimeType(ContentService.MimeType.JSON);
-}
--->
 </body>
 </html>
