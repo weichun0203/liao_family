@@ -16,6 +16,9 @@
       OneSignalDeferred.push(async function(OneSignal) {
         await OneSignal.init({
           appId: "ba8fe009-4a80-4e3e-a79a-62fbe8b68cbc",
+          // 🌟 關鍵 1：強制指定 Service Worker 的路徑為當前目錄
+          serviceWorkerParam: { scope: './' },
+          serviceWorkerPath: 'OneSignalSDKWorker.js'
         });
       });
     </script>
