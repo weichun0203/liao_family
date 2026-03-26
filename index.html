@@ -651,7 +651,7 @@
 <script>
     const { createApp, ref, computed, onMounted } = Vue;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwnXquVtWe17YILviODENrOtxbVe3iGQO7XHys_EFE7O9YpRnc3hSlTb-b4Wxi5cQ2K/exec"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyw5BnQOJTscaLkNm4_r_tppURlu9BefAQUigOJWZ4c21jRGa9VlVivg6x_ewWQUawL/exec"; 
     
     const LucideIcon = {
         props: ['name', 'class'],
@@ -1065,7 +1065,13 @@
                 const formattedDate = newAct.value.date.replace(/-/g, '/');
                 const formattedEndDate = newAct.value.endDate ? newAct.value.endDate.replace(/-/g, '/') : '';
                 
-                const data = { id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), ...newAct.value, date: formattedDate, endDate: formattedEndDate };
+               const data = { 
+                    id: isEditingActivity.value ? editingActId.value : 'ACT_' + Date.now(), 
+                    ...newAct.value, 
+                    date: formattedDate, 
+                    endDate: formattedEndDate,
+                    creator: userName.value || '家人' // 🌟 新增這行：記錄建立者
+                };
                 delete data.isMultiDay;
                 
                 if (isEditingActivity.value) {
