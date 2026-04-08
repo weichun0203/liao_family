@@ -684,7 +684,7 @@
     const app = createApp({
         setup() {
             // --- UI 狀態 ---
-            const activeTab = ref('home');
+            const activeTab = ref('reports');
             const showToast = ref(false);
             const toastMsg = ref('');
             
@@ -694,7 +694,7 @@
             const dailyScripture = ref("載入中...");
 
             const familyMembers = ['爸爸', '媽媽', '哥哥', '妹妹'];
-            const expenseCategories = ['房貸', '管理費', '水費', '電費', '瓦斯費', '其他'];
+            const expenseCategories = ['水費', '電費', '瓦斯費','管理費','房貸', '其他'];
             
             // 使用 safeParseJSON 避免解析錯誤導致網頁白畫面
             const personalGoals = ref(safeParseJSON('familyApp_personalGoals', []));
