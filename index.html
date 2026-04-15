@@ -14,9 +14,13 @@
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.init({
-          appId: "ba8fe009-4a80-4e3e-a79a-62fbe8b68cbc",
-        });
+        try {
+          await OneSignal.init({
+            appId: "ba8fe009-4a80-4e3e-a79a-62fbe8b68cbc",
+          });
+        } catch (error) {
+          console.warn("OneSignal 初始化被略過 (目前環境不在允許的網域內):", error.message);
+        }
       });
     </script>
     
@@ -220,7 +224,7 @@
                             </div>
                             
                             <div class="flex-1 overflow-x-auto scrollbar-hide flex items-end pb-6 border-b border-l border-[#EAECEF] relative transition-all duration-300">
-                                <div class="flex space-x-3 px-2 h-full items-end pt-4 min-w-max">
+                                <div v-if="monthlyCategoryStats[currentChartCategory].length > 0" class="flex space-x-3 px-2 h-full items-end pt-4 min-w-max">
                                     <div v-for="stat in monthlyCategoryStats[currentChartCategory]" :key="stat.month" class="flex flex-col items-center shrink-0 w-8 h-full justify-end relative">
                                         <div class="flex items-end space-x-0.5 w-full justify-center h-full relative group">
                                             <div class="bg-[#D1DAD5] w-2.5 rounded-t-sm transition-all" :style="{ height: (stat.lastYear / categoryMaxVals[currentChartCategory] * 100) + '%' }"></div>
@@ -228,6 +232,9 @@
                                         </div>
                                         <span class="text-[10px] text-[#7A8B99] absolute -bottom-5">{{ stat.month }}月</span>
                                     </div>
+                                </div>
+                                <div v-else class="absolute inset-0 flex items-center justify-center text-xs text-[#A0AAB2] pb-6">
+                                    此類別目前無任何數據
                                 </div>
                             </div>
                         </div>
@@ -670,7 +677,6 @@
         }
     };
 
-    // 新增安全解析 JSON 的輔助函式，避免舊快取造成當機
     const safeParseJSON = (key, defaultVal) => {
         try {
             const val = localStorage.getItem(key);
@@ -694,9 +700,8 @@
             const dailyScripture = ref("載入中...");
 
             const familyMembers = ['爸爸', '媽媽', '哥哥', '妹妹'];
-            const expenseCategories = ['水費', '電費', '瓦斯費','管理費','房貸', '其他'];
+            const expenseCategories = ['水費', '電費', '瓦斯費','管理費','房貸', '瑋群電信費'];
             
-            // 使用 safeParseJSON 避免解析錯誤導致網頁白畫面
             const personalGoals = ref(safeParseJSON('familyApp_personalGoals', []));
             const familyGoals = ref([]);
             const activities = ref([]);
@@ -712,7 +717,6 @@
 
             let savedShortcuts = safeParseJSON('familyApp_shortcuts', null);
             if (savedShortcuts) {
-                // 強制更新既有預設捷徑的 URL，保留使用者的自訂捷徑與排序
                 savedShortcuts = savedShortcuts.map(saved => {
                     if (!saved.isCustom) {
                         const def = defaultShortcuts.find(d => d.id === saved.id);
@@ -796,7 +800,6 @@
                     }
                     
                     if (data.scriptures && data.scriptures.length > 0) {
-                        // 根據一年中的第幾天來輪播經文，保證每天看的不一樣
                         const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
                         const idx = dayOfYear % data.scriptures.length;
                         dailyScripture.value = data.scriptures[idx].text || data.scriptures[idx][0] || dailyScripture.value;
@@ -897,7 +900,6 @@
                     姓名: uName, 
                     狀態: homeActionType.value, 
                     時間: new Date().toISOString(),
-                    // ✅ 增加 notifyMsg，讓 GAS 知道要發送推播
                     notifyMsg: msg 
                 });
                 triggerToastMsg(`已發送通知：${msg}！`);
@@ -915,12 +917,11 @@
             const newAct = ref({ title: '', date: '', endDate: '', isMultiDay: false, participants: [], note: '' });
             
             const getMemberColor = (name) => {
-                // 替換為低飽和度的莫蘭迪色系
                 const colors = {
-                    '爸爸': 'bg-[#E5E9EC] text-[#5B6A78] border-[#C5D0D8]', // 莫蘭迪藍灰
-                    '媽媽': 'bg-[#F2E8E7] text-[#8A716D] border-[#DDC6C3]', // 莫蘭迪粉棕
-                    '哥哥': 'bg-[#E5EAE6] text-[#64746A] border-[#C2CEC5]', // 莫蘭迪灰綠
-                    '妹妹': 'bg-[#F0EBE1] text-[#8A8168] border-[#D6CDB8]'  // 莫蘭迪暖沙色
+                    '爸爸': 'bg-[#E5E9EC] text-[#5B6A78] border-[#C5D0D8]', 
+                    '媽媽': 'bg-[#F2E8E7] text-[#8A716D] border-[#DDC6C3]', 
+                    '哥哥': 'bg-[#E5EAE6] text-[#64746A] border-[#C2CEC5]', 
+                    '妹妹': 'bg-[#F0EBE1] text-[#8A8168] border-[#D6CDB8]'  
                 };
                 return colors[name] || 'bg-[#F4F5F7] text-[#7A8B99] border-[#D4DFE6]';
             };
@@ -931,7 +932,6 @@
                     : activities.value.filter(a => a.participants.includes(activityFilter.value));
             });
 
-            // 判斷某一天是否在活動範圍內 (支援單天與多天)
             const isDateInAct = (dayTime, act) => {
                 if (!act.date) return false;
                 const start = new Date(act.date.replace(/-/g, '/')).setHours(0,0,0,0);
@@ -1086,7 +1086,6 @@
                 } else {
                     activities.value.push(data);
                     const uName = userName.value || '家人';
-                    // ✅ 增加 notifyMsg，如果是新增活動就發推播
                     const payload = { ...data, notifyMsg: `${uName} 建立新活動：${newAct.value.title}` };
                     syncToGas('活動', 'add', payload);
                     triggerToastMsg('已新增活動並同步至雲端');
@@ -1105,7 +1104,7 @@
             const showDeleteExpenseModal = ref(false);
             const deleteExpId = ref(null);
 
-            const currentChartIndex = ref(2); // 預設顯示水費 (['房貸', '管理費', '水費', '電費', '瓦斯費', '其他'])
+            const currentChartIndex = ref(2); 
             const currentChartCategory = computed(() => expenseCategories[currentChartIndex.value]);
             const prevChart = () => {
                 currentChartIndex.value = (currentChartIndex.value - 1 + expenseCategories.length) % expenseCategories.length;
@@ -1118,14 +1117,16 @@
                 const currentYear = new Date().getFullYear();
                 const targetYear = expenseYearFilter.value === '今年' ? currentYear : currentYear - 1;
                 return expenses.value.map(exp => {
-                    return { ...exp, category: exp.category === '房租' ? '房貸' : exp.category };
+                    let cat = exp.category;
+                    if (cat === '房租') cat = '房貸';
+                    if (cat === '其他') cat = '電信費';
+                    return { ...exp, category: cat };
                 }).filter(exp => {
                     const dDate = exp.date ? new Date(exp.date.replace(/-/g, '/')) : new Date();
                     return dDate.getFullYear() === targetYear;
                 });
             });
 
-            // 升冪排列：由舊到新
             const getExpensesByCategory = (cat) => {
                 return filteredExpensesForList.value.filter(e => e.category === cat).sort((a, b) => new Date(a.date) - new Date(b.date));
             };
@@ -1147,7 +1148,10 @@
                 });
 
                 expenses.value.forEach(exp => {
-                    const cat = exp.category === '房租' ? '房貸' : exp.category;
+                    let cat = exp.category;
+                    if (cat === '房租') cat = '房貸';
+                    if (cat === '其他') cat = '電信費';
+                    
                     if (!stats[cat]) return;
                     const dDate = exp.date ? new Date(exp.date.replace(/-/g, '/')) : new Date();
                     const y = dDate.getFullYear();
@@ -1158,6 +1162,12 @@
                         stats[cat][m].lastYear += Number(exp.amount) || 0;
                     }
                 });
+
+                // ✅ 在這裡過濾掉今年和去年皆為 0 的月份
+                expenseCategories.forEach(cat => {
+                    stats[cat] = stats[cat].filter(stat => stat.thisYear > 0 || stat.lastYear > 0);
+                });
+
                 return stats;
             });
 
@@ -1365,7 +1375,6 @@
                 if(item.type === 'roulette') {
                     showRouletteModal.value = true;
                 } else if(item.url && item.url !== '#') {
-                    // 如果是外部連結 (http 開頭) 用新分頁打開，內部連結直接跳轉
                     if (item.url.startsWith('http')) {
                         window.open(item.url, '_blank');
                     } else {
@@ -1419,7 +1428,6 @@
                 personalGoals.value = localProcess.result;
                 if (localProcess.modified) localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
                 
-                // 背景默默載入，UI (showUI) 設定為 false，所以不會跳出讀取視窗
                 loadCloudData(false);
             });
 
