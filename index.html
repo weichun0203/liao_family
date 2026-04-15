@@ -697,15 +697,19 @@
             // --- 資料狀態 ---
             const userName = ref(localStorage.getItem('familyApp_userName') || '');
             const inputName = ref(userName.value);
-            const dailyScripture = ref("載入中...");
+            
+            // 讓經文一進入也能先載入之前的快取
+            const dailyScripture = ref(localStorage.getItem('familyApp_scripture') || "載入中...");
 
             const familyMembers = ['爸爸', '媽媽', '哥哥', '妹妹'];
             const expenseCategories = ['水費', '電費', '瓦斯費','管理費','房貸', '瑋群電信費'];
             
             const personalGoals = ref(safeParseJSON('familyApp_personalGoals', []));
-            const familyGoals = ref([]);
-            const activities = ref([]);
-            const expenses = ref([]);
+            
+            // 加入快取：活動、家庭目標、報表，一進來就先給本地資料！
+            const activities = ref(safeParseJSON('familyApp_activities', []));
+            const expenses = ref(safeParseJSON('familyApp_expenses', []));
+            const familyGoals = ref(safeParseJSON('familyApp_familyGoals', []));
 
             const defaultShortcuts = [
                 { id: '1', icon: 'message-circle', label: '家庭群組', type: 'line', url: 'https://line.me/R/ti/g/QEAhJrMjdu', color: 'text-[#8FA39A]', isCustom: false },
@@ -792,24 +796,34 @@
 
                     const data = await res.json();
                     
-                    if (data.activities) activities.value = data.activities;
-                    if (data.expenses) expenses.value = data.expenses;
+                    // 從雲端拿回資料後，賦值並同時快取到 localStorage
+                    if (data.activities) {
+                        activities.value = data.activities;
+                        localStorage.setItem('familyApp_activities', JSON.stringify(data.activities));
+                    }
+                    if (data.expenses) {
+                        expenses.value = data.expenses;
+                        localStorage.setItem('familyApp_expenses', JSON.stringify(data.expenses));
+                    }
                     if (data.familyGoals) {
                         const cloudProcess = processGoals(data.familyGoals, true);
                         familyGoals.value = cloudProcess.result;
+                        localStorage.setItem('familyApp_familyGoals', JSON.stringify(data.familyGoals));
                     }
                     
                     if (data.scriptures && data.scriptures.length > 0) {
                         const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
                         const idx = dayOfYear % data.scriptures.length;
-                        dailyScripture.value = data.scriptures[idx].text || data.scriptures[idx][0] || dailyScripture.value;
+                        const text = data.scriptures[idx].text || data.scriptures[idx][0];
+                        dailyScripture.value = text;
+                        localStorage.setItem('familyApp_scripture', text);
                     } else if (dailyScripture.value === "載入中...") {
                         dailyScripture.value = "「凡事包容，凡事相信，凡事盼望，凡事忍耐。」- 哥林多前書 13:7";
                     }
                     
                 } catch (error) {
                     console.warn('GAS 讀取失敗', error);
-                    if(showUI) triggerToastMsg('雲端資料讀取失敗，請確認 GAS 部署權限為「所有人」。');
+                    if(showUI) triggerToastMsg('雲端資料讀取失敗，請確認網路連線。');
                     if (dailyScripture.value === "載入中...") dailyScripture.value = "「凡事包容，凡事相信，凡事盼望，凡事忍耐。」- 哥林多前書 13:7";
                 } finally {
                     if(showUI) isSyncing.value = false;
@@ -1058,6 +1072,7 @@
 
             const confirmDeleteActivityAct = () => {
                 activities.value = activities.value.filter(a => a.id !== deleteActId.value);
+                localStorage.setItem('familyApp_activities', JSON.stringify(activities.value)); // 同步儲存至本地
                 syncToGas('活動', 'delete', { id: deleteActId.value });
                 showDeleteActivityModal.value = false;
                 deleteActId.value = null;
@@ -1081,10 +1096,12 @@
                 if (isEditingActivity.value) {
                     const index = activities.value.findIndex(a => a.id === editingActId.value);
                     if (index !== -1) activities.value[index] = data;
+                    localStorage.setItem('familyApp_activities', JSON.stringify(activities.value)); // 同步儲存至本地
                     syncToGas('活動', 'update', data);
                     triggerToastMsg('活動已更新並同步！');
                 } else {
                     activities.value.push(data);
+                    localStorage.setItem('familyApp_activities', JSON.stringify(activities.value)); // 同步儲存至本地
                     const uName = userName.value || '家人';
                     const payload = { ...data, notifyMsg: `${uName} 建立新活動：${newAct.value.title}` };
                     syncToGas('活動', 'add', payload);
@@ -1119,7 +1136,7 @@
                 return expenses.value.map(exp => {
                     let cat = exp.category;
                     if (cat === '房租') cat = '房貸';
-                    if (cat === '其他') cat = '電信費';
+                    if (cat === '其他') cat = '瑋群電信費';
                     return { ...exp, category: cat };
                 }).filter(exp => {
                     const dDate = exp.date ? new Date(exp.date.replace(/-/g, '/')) : new Date();
@@ -1150,7 +1167,7 @@
                 expenses.value.forEach(exp => {
                     let cat = exp.category;
                     if (cat === '房租') cat = '房貸';
-                    if (cat === '其他') cat = '電信費';
+                    if (cat === '其他') cat = '瑋群電信費';
                     
                     if (!stats[cat]) return;
                     const dDate = exp.date ? new Date(exp.date.replace(/-/g, '/')) : new Date();
@@ -1199,6 +1216,7 @@
 
             const confirmDeleteExpenseAct = () => {
                 expenses.value = expenses.value.filter(e => e.id !== deleteExpId.value);
+                localStorage.setItem('familyApp_expenses', JSON.stringify(expenses.value)); // 同步儲存至本地
                 syncToGas('報表', 'delete', { id: deleteExpId.value });
                 showDeleteExpenseModal.value = false;
                 deleteExpId.value = null;
@@ -1214,10 +1232,12 @@
                 if (isEditingExpense.value) {
                     const index = expenses.value.findIndex(e => e.id === editingExpId.value);
                     if (index !== -1) expenses.value[index] = data;
+                    localStorage.setItem('familyApp_expenses', JSON.stringify(expenses.value)); // 同步儲存至本地
                     syncToGas('報表', 'update', data);
                     triggerToastMsg('費用已更新並同步！');
                 } else {
                     expenses.value.push(data);
+                    localStorage.setItem('familyApp_expenses', JSON.stringify(expenses.value)); // 同步儲存至本地
                     syncToGas('報表', 'add', data);
                     triggerToastMsg('費用已新增並同步');
                 }
@@ -1277,6 +1297,7 @@
                 if(goalTab.value === 'personal') {
                     localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
                 } else {
+                    localStorage.setItem('familyApp_familyGoals', JSON.stringify(familyGoals.value)); // 同步儲存至本地
                     syncToGas('目標', 'update', { ...goal });
                     triggerToastMsg('家庭目標狀態已同步');
                 }
@@ -1310,6 +1331,7 @@
                     localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
                 } else {
                     familyGoals.value = familyGoals.value.filter(g => g.id !== deleteGoalId.value);
+                    localStorage.setItem('familyApp_familyGoals', JSON.stringify(familyGoals.value)); // 同步儲存至本地
                     syncToGas('目標', 'delete', { id: deleteGoalId.value });
                 }
                 showDeleteGoalModal.value = false;
@@ -1342,10 +1364,12 @@
                     if (isEditingGoal.value) {
                         const idx = familyGoals.value.findIndex(g => g.id === editingGoalId.value);
                         if (idx > -1) familyGoals.value[idx] = data;
+                        localStorage.setItem('familyApp_familyGoals', JSON.stringify(familyGoals.value)); // 同步儲存至本地
                         syncToGas('目標', 'update', data);
                         triggerToastMsg('已更新並同步家庭目標');
                     } else {
                         familyGoals.value.push(data);
+                        localStorage.setItem('familyApp_familyGoals', JSON.stringify(familyGoals.value)); // 同步儲存至本地
                         syncToGas('目標', 'add', data);
                         triggerToastMsg('已新增並同步家庭目標');
                     }
@@ -1428,6 +1452,11 @@
                 personalGoals.value = localProcess.result;
                 if (localProcess.modified) localStorage.setItem('familyApp_personalGoals', JSON.stringify(personalGoals.value));
                 
+                // 初次載入家庭目標的本地狀態（如果有過期目標，順便處理）
+                const localFamilyProcess = processGoals(familyGoals.value, false);
+                familyGoals.value = localFamilyProcess.result;
+                
+                // 背景觸發 GAS 同步更新
                 loadCloudData(false);
             });
 
