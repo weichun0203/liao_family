@@ -913,7 +913,7 @@
                 const waterBill = getLatestExpenseAmount('水費');
                 const electricityBill = getLatestExpenseAmount('電費');
                 const gasBill = getLatestExpenseAmount('瓦斯費');
-                const totalAmount = waterBill + electricityBill + gasBill;
+                const totalAmount = Number(waterBill) + Number(electricityBill) + Number(gasBill);
 
                 const shareText = `本期水電瓦斯費支出一覽(${currentMonth}月)\n水費為:${waterBill}\n電費為:${electricityBill}\n瓦斯費為:${gasBill}\n總金額為:${totalAmount}\n----------\n點擊連結查看財務報表:\nhttps://weichun0203.github.io/liao_family/`;
 
